@@ -68,6 +68,13 @@
     $effect(() => {
         const node = containerEl;
         if (!node) return;
+        // Read the size now instead of waiting for the observer's first
+        // callback: on remount (returning from RSVP) the chapter HTML can be
+        // ready before that, and columnizeCurrent() would skip it, so the
+        // un-paginated chapter start was painted until the debounced relayout.
+        const rect = node.getBoundingClientRect();
+        containerWidth = Math.round(rect.width);
+        effectiveHeight = Math.round(rect.height);
         const ro = new ResizeObserver(([entry]) => {
             const { width, height } = entry.contentRect;
             containerWidth = Math.round(width);
