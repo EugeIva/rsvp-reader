@@ -132,6 +132,51 @@ describe("processHtmlDoc", () => {
         expect(el.innerHTML).not.toContain("tracker.example");
     });
 
+    it("parses XHTML chapters as XML, so an empty <title/> doesn't swallow the body", async () => {
+        const raw = `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml"><head><title/><link rel="stylesheet" href="style.css" type="text/css"/></head>
+<body class="z"><span id="id1"><div class="title2"><p class="p">От переводчика</p></div><p class="p1">Текст главы.</p></span></body></html>`;
+        const { html, error } = await processHtmlDoc(raw);
+        expect(error).toBe(false);
+        const el = document.createElement("div");
+        el.innerHTML = html;
+        expect(el.querySelector("#id1 .title2 p")?.textContent).toBe("От переводчика");
+        expect(el.textContent).toContain("Текст главы.");
+    });
+
+    it("keeps empty XHTML elements empty (no <a/> swallowing the following text)", async () => {
+        const raw = `<html xmlns="http://www.w3.org/1999/xhtml"><head><title/></head><body><p><a id="note1"/>After the anchor.</p></body></html>`;
+        const { html } = await processHtmlDoc(raw);
+        const el = document.createElement("div");
+        el.innerHTML = html;
+        expect(el.querySelector("#note1")?.textContent).toBe("");
+        expect(el.querySelector("p")?.textContent).toBe("After the anchor.");
+    });
+
+    it("falls back to HTML parsing for chapters that aren't well-formed XML", async () => {
+        const raw = `<html xmlns="http://www.w3.org/1999/xhtml"><body><p>Broken&nbsp;entity <br> unclosed</body></html>`;
+        const { html, error } = await processHtmlDoc(raw);
+        expect(error).toBe(false);
+        expect(html).toContain("Broken");
+        expect(html).toContain("unclosed");
+    });
+
+    it("loads an SVG <image> cover over epub://, and never a remote one", async () => {
+        const raw = `<html xmlns="http://www.w3.org/1999/xhtml"><head><title/></head><body class="cover">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 522"><image height="522" width="350" xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="/OPS/images/cover.jpg"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg"><image id="remote" href="https://tracker.example/x.png"/></svg></body></html>`;
+        const el = document.createElement("div");
+        el.innerHTML = (await processHtmlDoc(raw)).html;
+        const images = el.querySelectorAll("image");
+        expect(images[0]?.getAttribute("href")).toBe("epub://localhost/%2FOPS%2Fimages%2Fcover.jpg");
+        expect(images[0]?.getAttribute("xlink:href")).toBeNull();
+        expect(el.innerHTML).not.toContain("tracker.example");
+
+        const measured = document.createElement("div");
+        measured.innerHTML = (await processHtmlDoc(raw, { forMeasure: true })).html;
+        expect(measured.querySelector("image")?.getAttribute("href")).toMatch(/^data:image\/gif;base64,/);
+    });
+
     it("never falls back to the raw HTML when processing fails", async () => {
         vi.stubGlobal(
             "DOMParser",

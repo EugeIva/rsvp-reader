@@ -6,7 +6,7 @@ import "$lib/epubFlow.css";
 
 // Part of every saved page-count cache key; bump it when a change to layout
 // or measuring could change page counts, so stale caches are ignored.
-const LAYOUT_VERSION = 3;
+const LAYOUT_VERSION = 4;
 
 // Shown instead of a chapter that fails to process; raw EPUB HTML is never
 // rendered unsanitized.
@@ -21,6 +21,9 @@ const BLANK_IMAGE = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAAL
 // <base>/<meta> could navigate the webview, so drop those too.
 const SANITIZE_CONFIG = {
     FORBID_TAGS: ["style", "link", "meta", "base", "form", "input", "button", "textarea", "select"],
+    // SVG <image> isn't on DOMPurify's allowlist; EPUB covers commonly use it.
+    // Remote sources on it are still removed by the hook below.
+    ADD_TAGS: ["image"],
 };
 
 // http(s)://, protocol-relative // and any other scheme://. Relative paths and
@@ -74,6 +77,18 @@ function setColumnStyle(el: HTMLElement, prop: string, value: string) {
 }
 
 /**
+ * Body markup of a chapter. EPUB chapters are XHTML, so they're parsed as
+ * XML: parsed as HTML, an XHTML-only construct such as an empty `<title/>`
+ * swallows the rest of the document into the title and leaves the body
+ * empty. Chapters that aren't well-formed XML fall back to the HTML parser.
+ */
+function chapterBody(raw: string): string {
+    const xml = new DOMParser().parseFromString(raw, "application/xhtml+xml");
+    if (!xml.querySelector("parsererror") && xml.body) return xml.body.innerHTML;
+    return new DOMParser().parseFromString(raw, "text/html").body.innerHTML;
+}
+
+/**
  * Parse and sanitize chapter HTML with DOMPurify (remote resources blocked),
  * then point the book's images at the epub:// scheme. Images whose size is
  * known get an explicit width and aspect ratio, so the page layout is final
@@ -86,8 +101,7 @@ export async function processHtmlDoc(
     opts: { forMeasure?: boolean } = {}
 ): Promise<{ html: string; error: boolean }> {
     try {
-        const doc = new DOMParser().parseFromString(raw, "text/html");
-        const frag = DOMPurify.sanitize(doc.body.innerHTML, { ...SANITIZE_CONFIG, RETURN_DOM_FRAGMENT: true });
+        const frag = DOMPurify.sanitize(chapterBody(raw), { ...SANITIZE_CONFIG, RETURN_DOM_FRAGMENT: true });
 
         // Remote sources were removed by the sanitizer; data: URIs stay as they are.
         const isBookImage = (src: string | null): src is string => !!src && !src.startsWith("data:");
@@ -102,6 +116,14 @@ export async function processHtmlDoc(
                 img.style.setProperty("aspect-ratio", `${size[0]} / ${size[1]}`);
             }
             img.setAttribute("src", opts.forMeasure && size ? BLANK_IMAGE : convertFileSrc(src, "epub"));
+        }
+        // SVG <image> (typical for covers): its size comes from the SVG, so
+        // measuring never needs the picture itself.
+        for (const image of frag.querySelectorAll("image")) {
+            const href = image.getAttribute("href") ?? image.getAttribute("xlink:href");
+            if (!isBookImage(href)) continue;
+            image.removeAttribute("xlink:href");
+            image.setAttribute("href", opts.forMeasure ? BLANK_IMAGE : convertFileSrc(href, "epub"));
         }
 
         for (const link of frag.querySelectorAll("a")) {
