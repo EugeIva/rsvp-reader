@@ -38,7 +38,7 @@ they show a blank window; `launch.sh` takes care of this (see `AGENTS.md`).
 | Key | Page mode | RSVP mode |
 |---|---|---|
 | `A` | switch to RSVP | stop and return to page mode |
-| `Space` | — | play / pause |
+| `Space` | next page | play / pause |
 | `←` `→` | previous / next page | — |
 | `9` `0` | larger / smaller font | — |
 

@@ -21,6 +21,7 @@
     import { Pagination } from "$lib/reader/pagination.svelte";
     import { tick } from "svelte";
     import { openUrl } from "@tauri-apps/plugin-opener";
+    import { isModeSwitchKey, isSpaceKey } from "$lib/utils/keys";
 
     let processedHtml = $state("");
     let processedChapter = $state(-1);
@@ -251,9 +252,15 @@
             e.preventDefault();
             changeFont(-0.1);
         }
-        if (e.key === "a" || e.key === "A") {
+        if (isModeSwitchKey(e)) {
             e.preventDefault();
             enterRsvp();
+        }
+        // Space turns the page. preventDefault stops it also pressing a
+        // focused button (Prev, Open...); holding it doesn't race ahead.
+        if (isSpaceKey(e)) {
+            e.preventDefault();
+            if (!e.repeat) goNext();
         }
     }
 

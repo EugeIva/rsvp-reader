@@ -224,7 +224,7 @@ This is a **working prototype with a sensible core idea and uneven execution**.
     - Fallback if `CSS.highlights` isn't available in the WebView: an absolutely positioned overlay `div` placed from `range.getBoundingClientRect()`.
   - Keep link clicks working as they do now (`Reader.svelte:378-413`).
   - Keep the current behavior where turning the page resets the RSVP position: `goPrev` / `goNext` set `rsvpWordOffset` to 0 (`Reader.svelte:355,359`). Turning the page therefore also clears the highlight.
-- [ ] **Keyboard behavior (required spec):**
+- [x] **Keyboard behavior (required spec):**
   - **Page mode:**
     - `A` switches to RSVP mode.
     - Space goes to the next page, the same as the right arrow (`goNext()`). On the last page it does nothing.
@@ -236,7 +236,7 @@ This is a **working prototype with a sensible core idea and uneven execution**.
     - `preventDefault()` is required. Without it, Space also presses whichever toolbar button has focus after a mouse click (Prev, Next, Open, RSVP). With Prev focused, that would cancel out the page turn; with Open focused, it would open the file dialog.
     - Like RSVP's Space, ignore auto-repeat (`e.repeat`), so holding Space doesn't race through pages. Leave it out if holding Space should keep turning pages, as holding the arrow keys does now.
     - `goNext()` resets the RSVP position to the start of the page, the same as the arrow keys.
-- [ ] **Keep `A` as the mode-switch key, but match the physical key so it works with any keyboard layout.**
+- [x] **Keep `A` as the mode-switch key, but match the physical key so it works with any keyboard layout.**
   - Today `e.key === "a" || "A"` (`Reader.svelte:422`, `RSVPReader.svelte:258`) never matches on Cyrillic and other non-Latin layouts, where the key produces `ф`.
   - Match on the physical key instead: `e.code === "KeyA"`. `e.code` names the key's position on a US QWERTY keyboard whatever the active layout, so it fires for `ф` on Russian too.
     - On AZERTY, `KeyA` is the key labelled `Q`. That's an accepted side effect of matching by position.

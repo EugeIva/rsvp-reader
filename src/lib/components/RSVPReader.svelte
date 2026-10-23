@@ -4,6 +4,7 @@
     import Controls from "./Controls.svelte";
     import CountdownTimer from "./CountdownTimer.svelte";
     import { untrack } from "svelte";
+    import { isModeSwitchKey, isSpaceKey } from "$lib/utils/keys";
 
     const playback = new RsvpPlayback();
 
@@ -17,11 +18,11 @@
     });
 
     function onKeyDown(e: KeyboardEvent) {
-        if (e.key === "a" || e.key === "A") {
+        if (isModeSwitchKey(e)) {
             e.preventDefault();
             playback.stop();
         }
-        if (e.key === " ") {
+        if (isSpaceKey(e)) {
             e.preventDefault();
             if (e.repeat) return;
             playback.togglePlay();
