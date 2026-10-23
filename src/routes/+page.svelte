@@ -7,14 +7,9 @@
     import { invoke } from "@tauri-apps/api/core";
     import { getCurrentWindow } from "@tauri-apps/api/window";
     import { tick } from "svelte";
-    import { initWordComplexity } from "$lib/wordComplexity";
     import { dbg } from "$lib/utils/debug";
 
     dbg("boot: +page module loaded");
-
-    $effect(() => {
-        initWordComplexity();
-    });
 
     $effect(() => {
         const flushErrors = async () => {

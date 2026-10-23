@@ -7,6 +7,8 @@
     import { tokenize, RsvpEngine } from "$lib/utils/rsvp";
     import type { RsvpToken } from "$lib/utils/rsvp";
     import { columnizeOffscreen } from "$lib/utils/columns";
+    import { loadLanguage } from "$lib/wordComplexity";
+    import { detectLanguage } from "$lib/wordComplexity/language";
     import Controls from "./Controls.svelte";
     import { untrack } from "svelte";
 
@@ -82,6 +84,10 @@
             }
             return;
         }
+
+        // Load the page's word list before playback starts, so the first
+        // words already get complexity timing.
+        loadLanguage(detectLanguage(text)).catch(() => {});
 
         const allTokens = tokenize(text);
         const start = Math.min($rsvpWordOffset, Math.max(0, allTokens.length - 1));

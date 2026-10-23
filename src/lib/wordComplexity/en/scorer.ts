@@ -2,19 +2,23 @@ import { syllable } from "syllable";
 import { daleChall } from "dale-chall";
 import type { WordScore } from "../types";
 import { SCORE_WEIGHTS } from "../types";
-import { normalizeFrequency, FREQ_TOTAL } from "./loader";
+import { normalizeFrequency } from "./loader";
 import { bigramRarity } from "./bigrams";
 
 const MAX_LENGTH = 30;
 const MAX_SYLLABLES = 12;
 
+// dale-chall exports a plain array; a Set gives O(1) lookups.
+const FAMILIAR_WORDS = new Set(daleChall);
+
 export function makeEnScorer(
     freqMap: Map<string, number>,
     bigramStats: Map<string, number>,
 ) {
+    // Words missing from the list score 1, the hardest.
     function getFrequency(word: string): number {
         const rank = freqMap.get(word.toLowerCase());
-        return rank !== undefined ? normalizeFrequency(rank, FREQ_TOTAL) : 1;
+        return rank !== undefined ? normalizeFrequency(rank, freqMap.size) : 1;
     }
 
     function getSyllables(word: string): number {
@@ -52,7 +56,7 @@ export function makeEnScorer(
     }
 
     function isFamiliar(word: string): number {
-        return daleChall.has(word.toLowerCase()) ? 0 : 1;
+        return FAMILIAR_WORDS.has(word.toLowerCase()) ? 0 : 1;
     }
 
     return {

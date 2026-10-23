@@ -13,8 +13,7 @@ export async function loadFrequency(): Promise<Map<string, number>> {
     return map;
 }
 
+// Maps a 0-based rank in a list of `total` words into [0, 1).
 export function normalizeFrequency(rank: number, total: number): number {
-    return rank / total;
+    return total > 0 ? Math.min(1, rank / total) : 1;
 }
-
-export const FREQ_TOTAL = 50000;

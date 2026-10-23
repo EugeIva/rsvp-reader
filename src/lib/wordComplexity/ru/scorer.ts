@@ -1,6 +1,6 @@
 import type { WordScore } from "../types";
 import { SCORE_WEIGHTS } from "../types";
-import { FREQ_TOTAL } from "./loader";
+import { normalizeFrequency } from "../en/loader";
 import { bigramRarity } from "./bigrams";
 
 const RU_VOWELS = new Set(["а", "е", "ё", "и", "о", "у", "ы", "э", "ю", "я"]);
@@ -12,9 +12,11 @@ export function makeRuScorer(
     top5000: Set<string>,
     bigramStats: Map<string, number>,
 ) {
+    // Normalized by the loaded list's size (a fixed total of 200000 against a
+    // 1.4M-word list produced values up to ~7). Missing words score 1, the hardest.
     function getFrequency(word: string): number {
         const rank = freqMap.get(word.toLowerCase());
-        return rank !== undefined ? rank / FREQ_TOTAL : 1;
+        return rank !== undefined ? normalizeFrequency(rank, freqMap.size) : 1;
     }
 
     function countSyllables(word: string): number {

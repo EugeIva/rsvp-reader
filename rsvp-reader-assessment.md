@@ -130,12 +130,12 @@ The confirmed bugs are traced through the code; none were reproduced at runtime.
    - Advance to the next page only *after* the last token's delay has elapsed. For example, have the engine fire an `onEnd` after the final delay.
    - Make `updateConfig` keep the current word, either by only changing future delays or by rescheduling the remaining time.
    - Add Vitest tests for `RsvpEngine` using fake timers.
-2. **Harden the HTML path** (item 4):
+2. ✅ **Done in `5705099`.** **Harden the HTML path** (item 4):
    - Never fall back to raw HTML.
    - Switch to an allowlist sanitizer such as DOMPurify.
    - Set a real CSP in `tauri.conf.json`.
    - Block remote resources.
-3. **Fix the complexity data** (items 3, 12):
+3. ✅ **Done, together with the English `daleChall.has` bug found later.** **Fix the complexity data** (items 3, 12):
    - Derive `FREQ_TOTAL` from the loaded map and clamp to [0, 1].
    - Treat unknown words as the hardest.
    - Trim `ru_full.txt` to a sensible top-N, or precompute it into a compact format.

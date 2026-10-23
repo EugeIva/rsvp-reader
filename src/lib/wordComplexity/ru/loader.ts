@@ -1,5 +1,5 @@
 export async function loadFrequency(): Promise<{ map: Map<string, number>; top5000: Set<string> }> {
-    const resp = await fetch("/ru_full.txt");
+    const resp = await fetch("/ru_200k.txt");
     const text = await resp.text();
     const map = new Map<string, number>();
     const top5000 = new Set<string>();
@@ -15,5 +15,3 @@ export async function loadFrequency(): Promise<{ map: Map<string, number>; top50
     }
     return { map, top5000 };
 }
-
-export const FREQ_TOTAL = 200000;
