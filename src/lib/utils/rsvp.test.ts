@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { tokenize, getORP, calculateDelay, DEFAULT_RSVP_CONFIG, RsvpEngine } from "./rsvp";
+import {
+    tokenize,
+    getORP,
+    calculateDelay,
+    DEFAULT_RSVP_CONFIG,
+    RsvpEngine,
+    tokenIndexOfWord,
+    wordIndexOfToken,
+} from "./rsvp";
 import type { RsvpToken, RsvpConfig } from "./rsvp";
 
 function words(tokens: RsvpToken[]): string[] {
@@ -436,5 +444,48 @@ describe("getORP and calculateDelay — more cases", () => {
     it("adds the punctuation pause, and drops it at 0 ms", () => {
         expect(calculateDelay(word("hello", ","), { ...base, wpm: 300 })).toBe(400);
         expect(calculateDelay(comma, { ...base, punctuationDelayMs: 0 })).toBe(0);
+    });
+});
+
+describe("word <-> token mapping (clicking a word in page mode)", () => {
+    it("records where each token's text starts", () => {
+        const text = '«Hello», he said — "tin" ok.';
+        for (const tok of tokenize(text)) {
+            expect(text.slice(tok.offset, tok.offset! + tok.text.length)).toBe(tok.text);
+        }
+    });
+
+    it("maps words to tokens when they line up one-to-one", () => {
+        const words = ["one", "two", "three"];
+        expect([0, 1, 2].map((k) => tokenIndexOfWord(words, k))).toEqual([0, 1, 2]);
+        expect([0, 1, 2].map((t) => wordIndexOfToken(words, t))).toEqual([0, 1, 2]);
+    });
+
+    it("maps a punctuation-only word to the token it is glued to", () => {
+        // "—" becomes part of "said"'s suffix, so tokens are said, then.
+        const words = ["he", "said", "—", "then", "left."];
+        expect(tokenize(words.join(" ")).map((t) => t.text)).toEqual(["he", "said", "then", "left"]);
+        expect(tokenIndexOfWord(words, 2)).toBe(1);
+        expect(tokenIndexOfWord(words, 3)).toBe(2);
+        expect(wordIndexOfToken(words, 2)).toBe(3);
+    });
+
+    it("maps quoted words to their token, and back to the word itself", () => {
+        const words = ["he", "said", '"tin"', "to", "her"];
+        expect(tokenIndexOfWord(words, 2)).toBe(2);
+        expect(wordIndexOfToken(words, 2)).toBe(2);
+    });
+
+    it("round-trips every word of a page that starts a token", () => {
+        const words = "Он сказал: «Не надо» — и ушёл, не оглядываясь… Потом вернулся.".split(" ");
+        const tokens = tokenize(words.join(" "));
+        for (let t = 0; t < tokens.length; t++) {
+            expect(tokenIndexOfWord(words, wordIndexOfToken(words, t))).toBe(t);
+        }
+    });
+
+    it("clamps out-of-range token indexes", () => {
+        expect(wordIndexOfToken(["a", "b"], 99)).toBe(1);
+        expect(wordIndexOfToken([], 0)).toBe(0);
     });
 });

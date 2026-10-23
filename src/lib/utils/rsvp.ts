@@ -5,6 +5,8 @@ export interface RsvpToken {
     isPunctuation: boolean;
     punctSuffix: string;
     quotePrefix: string;
+    /** Where `text` starts in the string passed to tokenize(). */
+    offset?: number;
 }
 
 let _scoreWord: ((word: string) => { score: number }) | null = null;
@@ -67,6 +69,7 @@ interface RawToken {
     orpIndex: number;
     isPunctuation: boolean;
     spaceBefore: boolean;
+    offset: number;
 }
 
 export function tokenize(text: string): RsvpToken[] {
@@ -86,6 +89,7 @@ export function tokenize(text: string): RsvpToken[] {
             orpIndex: isWord ? getORP(raw_text) : -1,
             isPunctuation: !isWord && PUNCTUATION.has(raw_text),
             spaceBefore,
+            offset: match.index,
         });
     }
 
@@ -134,6 +138,7 @@ export function tokenize(text: string): RsvpToken[] {
             }
             tokens.push({
                 text: wordTok.text,
+                offset: wordTok.offset,
                 isWord: true,
                 orpIndex: wordTok.orpIndex,
                 isPunctuation: false,
@@ -162,6 +167,7 @@ export function tokenize(text: string): RsvpToken[] {
             }
             tokens.push({
                 text: tok.text,
+                offset: tok.offset,
                 isWord: true,
                 orpIndex: tok.orpIndex,
                 isPunctuation: false,
@@ -181,6 +187,7 @@ export function tokenize(text: string): RsvpToken[] {
             } else {
                 tokens.push({
                     text: tok.text,
+                    offset: tok.offset,
                     isWord: false,
                     orpIndex: -1,
                     isPunctuation: true,
@@ -200,6 +207,7 @@ export function tokenize(text: string): RsvpToken[] {
         } else {
             tokens.push({
                 text: tok.text,
+                offset: tok.offset,
                 isWord: false,
                 orpIndex: -1,
                 isPunctuation: tok.isPunctuation,
@@ -220,6 +228,46 @@ export function tokenize(text: string): RsvpToken[] {
     }
 
     return tokens;
+}
+
+/** Index of the token covering character `offset` of the tokenized text: the last token starting at or before it. */
+export function tokenIndexAtOffset(tokens: RsvpToken[], offset: number): number {
+    let index = 0;
+    for (let i = 0; i < tokens.length; i++) {
+        if ((tokens[i].offset ?? 0) > offset) break;
+        index = i;
+    }
+    return index;
+}
+
+/**
+ * RSVP plays a page as tokenize(words.join(" ")), whose tokens don't map
+ * one-to-one onto the page's words (punctuation-only words are merged into
+ * neighbours). Token index for word `k` of `words`.
+ */
+export function tokenIndexOfWord(words: string[], k: number): number {
+    let start = 0;
+    for (let i = 0; i < k && i < words.length; i++) start += words[i].length + 1;
+    const end = start + (words[k]?.length ?? 0);
+    const tokens = tokenize(words.join(" "));
+    // The token whose text starts inside the word (after any opening quote);
+    // a punctuation-only word has none and belongs to the token before it.
+    const inside = tokens.findIndex((tok) => (tok.offset ?? 0) >= start && (tok.offset ?? 0) < end);
+    return inside >= 0 ? inside : tokenIndexAtOffset(tokens, start);
+}
+
+/** Inverse of tokenIndexOfWord: index in `words` of the word token `t` starts in. */
+export function wordIndexOfToken(words: string[], t: number): number {
+    const tokens = tokenize(words.join(" "));
+    const token = tokens[Math.max(0, Math.min(t, tokens.length - 1))];
+    if (!token) return 0;
+    const offset = token.offset ?? 0;
+    let start = 0;
+    for (let k = 0; k < words.length; k++) {
+        start += words[k].length + 1;
+        if (offset < start) return k;
+    }
+    return Math.max(0, words.length - 1);
 }
 
 export function getORP(word: string): number {

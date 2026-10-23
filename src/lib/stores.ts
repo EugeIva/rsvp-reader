@@ -53,6 +53,9 @@ export const pendingWordAnchor = writable<WordAnchor | null>(null);
 // once every chapter's page count is known.
 export const legacyPage = writable<number | null>(null);
 export const pageCountCache = writable<PageCountCache | null>(null);
+// Highlight the RSVP position (rsvpWordOffset) in page mode: on after a word
+// is clicked or RSVP is left, off after a page turn or a jump.
+export const wordHighlight = writable(false);
 
 export const rsvpActive = writable(false);
 export const rsvpWordOffset = writable(0);

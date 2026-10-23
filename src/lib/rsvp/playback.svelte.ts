@@ -12,6 +12,7 @@ import {
     rsvpColumnChapter,
     readerMetrics,
     pageStart,
+    wordHighlight,
     updatePageCounts,
     whenChapterHtmlsLoaded,
 } from "$lib/stores";
@@ -187,6 +188,8 @@ export class RsvpPlayback {
         this.countdown.stop();
         rsvpActive.set(false);
         rsvpWordOffset.set(this.currentIdx);
+        // Page mode shows where RSVP stopped.
+        wordHighlight.set(true);
     }
 
     updateConfig(cfg: RsvpConfig) {

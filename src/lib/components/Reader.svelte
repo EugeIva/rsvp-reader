@@ -12,6 +12,7 @@
         rsvpWordOffset,
         rsvpColumnTexts,
         rsvpColumnChapter,
+        wordHighlight,
     } from "$lib/stores";
     import { dbg } from "$lib/utils/debug";
     import { processHtmlDoc, wrapImages, unsizedImages } from "$lib/utils/columns";
@@ -152,10 +153,18 @@
         tick().then(() => pager.positionCurrent());
     });
 
+    // Redraw the highlight when the RSVP position changes or it's switched on/off.
+    $effect(() => {
+        $rsvpWordOffset;
+        $wordHighlight;
+        tick().then(() => pager.updateHighlight());
+    });
+
     function goPrev() {
         if ($currentPage > 0) {
             currentPage.set($currentPage - 1);
             rsvpWordOffset.set(0);
+            wordHighlight.set(false);
         }
     }
 
@@ -163,6 +172,7 @@
         if ($currentPage < $readerTotalPages - 1) {
             currentPage.set($currentPage + 1);
             rsvpWordOffset.set(0);
+            wordHighlight.set(false);
         }
     }
 
@@ -181,10 +191,12 @@
         rsvpActive.set(true);
     }
 
-    function clickWord(e: Event) {
+    /** Follow a link, or make the clicked word the RSVP starting word. */
+    function clickWord(e: MouseEvent) {
         const link = (e.target as HTMLElement).closest("a");
         if (link) {
             e.preventDefault();
+            wordHighlight.set(false);
             const href = link.getAttribute("href");
             if (!href) return;
             if (href.startsWith("http://") || href.startsWith("https://")) {
@@ -219,7 +231,7 @@
             }
             return;
         }
-        enterRsvp();
+        pager.selectWordAt(e.clientX, e.clientY);
     }
 
     function onKeyDown(e: KeyboardEvent) {
@@ -278,9 +290,11 @@
                 tabindex="0"
                 onclick={clickWord}
                 onkeydown={(e) => {
-                    if (e.key === "Enter") {
+                    // Keyboard access: Enter on a focused link follows it (the
+                    // browser turns it into a click); elsewhere it starts RSVP.
+                    if (e.key === "Enter" && !(e.target as HTMLElement).closest("a")) {
                         e.preventDefault();
-                        clickWord(e);
+                        enterRsvp();
                     }
                 }}
             >

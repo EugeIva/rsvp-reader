@@ -54,3 +54,9 @@
     margin: 0.8em 0 0.3em;
     color: #e0e0e0;
 }
+
+/* The RSVP position in page mode (Pagination.updateHighlight). */
+::highlight(rsvp-word) {
+    background-color: rgba(106, 156, 245, 0.35);
+    color: #fff;
+}

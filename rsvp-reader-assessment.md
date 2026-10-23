@@ -211,7 +211,7 @@ This is a **working prototype with a sensible core idea and uneven execution**.
   - Add `timerEnabled: boolean` to the global settings and a checkbox next to the timer inputs (`RSVPReader.svelte:324-326`).
   - When it's unchecked, disable the minute and second inputs, skip `startTimer` / `resumeTimer`, and hide the remaining-time display. The minutes and seconds values stay saved, so turning it back on restores them.
   - Today the countdown can only be turned off by setting it to 00:00 (`RSVPReader.svelte:164`).
-- [ ] **Clicking a word in page mode sets the RSVP position without switching modes.**
+- [x] **Clicking a word in page mode sets the RSVP position without switching modes.**
   - Today any click on non-link text calls `enterRsvp()` (`Reader.svelte:414`). Remove that call and keep the RSVP button and the mode-switch key (physical `A`, see the next item) as the only ways in.
   - On click, find the clicked text node and character offset with `document.caretPositionFromPoint` (fall back to `caretRangeFromPoint` in WebKit).
   - Find the word's index within its column by walking the column's text nodes in the same order as `extractColumnWords` (`columns.ts:150`).

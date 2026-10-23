@@ -15,6 +15,7 @@ import {
     pendingWordAnchor,
     legacyPage,
     pageCountCache,
+    wordHighlight,
     chapterStartPage,
     updatePageCounts,
     whenChapterHtmlsLoaded,
@@ -22,6 +23,20 @@ import {
 import type { ReaderMetrics } from "$lib/stores";
 import { dbg } from "$lib/utils/debug";
 import { paginateFlow, extractColumnWords, measureOffscreenPages, layoutKey } from "$lib/utils/columns";
+import { tokenIndexOfWord, wordIndexOfToken } from "$lib/utils/rsvp";
+
+// Name of the CSS highlight (styled with ::highlight(rsvp-word) in epubFlow.css).
+const HIGHLIGHT = "rsvp-word";
+
+/** The text node and character offset at a viewport point, if it's in text. */
+function caretAt(x: number, y: number): { node: Text; offset: number } | null {
+    const pos = document.caretPositionFromPoint?.(x, y);
+    if (pos) return pos.offsetNode instanceof Text ? { node: pos.offsetNode, offset: pos.offset } : null;
+    const range = document.caretRangeFromPoint?.(x, y);
+    return range && range.startContainer instanceof Text
+        ? { node: range.startContainer, offset: range.startOffset }
+        : null;
+}
 
 /** What the pagination controller needs from the page-mode view. */
 export interface PageView {
@@ -103,6 +118,7 @@ export class Pagination {
 
     /** Stop background work (page mode is unmounting). */
     destroy() {
+        CSS.highlights?.delete(HIGHLIGHT);
         this.premeasureGen++;
         if (this.premeasureTimer) clearTimeout(this.premeasureTimer);
         if (this.relayoutTimer) clearTimeout(this.relayoutTimer);
@@ -315,5 +331,87 @@ export class Pagination {
         if (this.measuredChapter === currentChapter) {
             pageStart.set({ chapter: currentChapter, word: wordsBefore(this.columnWordsCache, column) });
         }
+        this.updateHighlight();
+    }
+
+    /**
+     * The flow's laid-out text nodes, in order, with their words. Counted the
+     * same way as extractColumnWords (nodes without boxes are skipped), so
+     * word N here is word N of the chapter's column word lists.
+     */
+    private laidOutWords(): { node: Text; words: RegExpMatchArray[] }[] {
+        const el = this.view.flow();
+        if (!el) return [];
+        const out: { node: Text; words: RegExpMatchArray[] }[] = [];
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+        const range = document.createRange();
+        while (walker.nextNode()) {
+            const node = walker.currentNode as Text;
+            const words = [...(node.textContent ?? "").matchAll(/\S+/g)];
+            if (!words.length) continue;
+            range.selectNodeContents(node);
+            if (!Array.from(range.getClientRects()).some((r) => r.width > 0 && r.height > 0)) continue;
+            out.push({ node, words });
+        }
+        return out;
+    }
+
+    /**
+     * Make the word at viewport point (x, y) the RSVP starting word, and
+     * highlight it. Returns false if there's no word there.
+     */
+    selectWordAt(x: number, y: number): boolean {
+        const ci = this.view.currentChapter();
+        const hit = caretAt(x, y);
+        if (!hit || this.measuredChapter !== ci) return false;
+        let before = 0;
+        let word = -1;
+        for (const { node, words } of this.laidOutWords()) {
+            if (node === hit.node) {
+                // The word the caret is in or at the end of (clicking the right
+                // half of a word's last letter puts the caret after it), else
+                // the next word.
+                const i = words.findIndex((m) => hit.offset <= m.index! + m[0].length);
+                word = before + (i < 0 ? words.length - 1 : i);
+                break;
+            }
+            before += words.length;
+        }
+        if (word < 0) return false;
+        const col = columnOfWord(this.columnWordsCache, word);
+        const page = chapterStartPage(get(chapterPageCounts), ci) + col;
+        if (page !== get(currentPage)) currentPage.set(page);
+        rsvpWordOffset.set(
+            tokenIndexOfWord(this.columnWordsCache[col], word - wordsBefore(this.columnWordsCache, col)),
+        );
+        wordHighlight.set(true);
+        this.updateHighlight();
+        return true;
+    }
+
+    /** Highlight the word at the RSVP position on the current page, or clear the highlight. */
+    updateHighlight() {
+        const registry = CSS.highlights;
+        if (!registry) return;
+        const words = this.columnWordsCache[this.view.column()];
+        if (!get(wordHighlight) || this.measuredChapter !== this.view.currentChapter() || !words?.length) {
+            registry.delete(HIGHLIGHT);
+            return;
+        }
+        const target =
+            wordsBefore(this.columnWordsCache, this.view.column()) + wordIndexOfToken(words, get(rsvpWordOffset));
+        let before = 0;
+        for (const { node, words: nodeWords } of this.laidOutWords()) {
+            if (target < before + nodeWords.length) {
+                const m = nodeWords[target - before];
+                const range = document.createRange();
+                range.setStart(node, m.index!);
+                range.setEnd(node, m.index! + m[0].length);
+                registry.set(HIGHLIGHT, new Highlight(range));
+                return;
+            }
+            before += nodeWords.length;
+        }
+        registry.delete(HIGHLIGHT);
     }
 }
