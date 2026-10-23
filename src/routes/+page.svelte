@@ -2,7 +2,16 @@
     import Library from "$lib/components/Library.svelte";
     import Reader from "$lib/components/Reader.svelte";
     import RSVPReader from "$lib/components/RSVPReader.svelte";
-    import { book, rsvpActive, currentPage, rsvpWordOffset, fontSize, rsvpConfig, pageStart, pageCountCache } from "$lib/stores";
+    import {
+        book,
+        rsvpActive,
+        currentPage,
+        rsvpWordOffset,
+        fontSize,
+        rsvpConfig,
+        pageStart,
+        pageCountCache,
+    } from "$lib/stores";
     import { saveState } from "$lib/utils/persistence";
     import { invoke } from "@tauri-apps/api/core";
     import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -19,7 +28,11 @@
             if (!errs || !errs.length) return;
             w.__rsvpErrors = [];
             for (const m of errs) {
-                try { logError("page-error: " + m); } catch { /* logging is best-effort */ }
+                try {
+                    logError("page-error: " + m);
+                } catch {
+                    /* logging is best-effort */
+                }
             }
         };
         flushErrors();
@@ -110,8 +123,9 @@
     }
 
     :global(body) {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
-            Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+        font-family:
+            -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji",
+            "Segoe UI Emoji";
         font-size: 16px;
         line-height: 1.5;
         color: #e0e0e0;

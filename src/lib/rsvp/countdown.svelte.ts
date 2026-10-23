@@ -11,7 +11,10 @@ export class Countdown {
      * @param totalSeconds the configured duration (0 = no countdown)
      * @param onExpire called when the countdown reaches zero
      */
-    constructor(private totalSeconds: () => number, private onExpire: () => void) {}
+    constructor(
+        private totalSeconds: () => number,
+        private onExpire: () => void,
+    ) {}
 
     /** Start from the full configured duration (no-op if none is set). */
     start() {

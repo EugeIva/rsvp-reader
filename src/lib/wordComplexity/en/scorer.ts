@@ -11,10 +11,7 @@ const MAX_SYLLABLES = 12;
 // dale-chall exports a plain array; a Set gives O(1) lookups.
 const FAMILIAR_WORDS = new Set(daleChall);
 
-export function makeEnScorer(
-    freqMap: Map<string, number>,
-    bigramStats: Map<string, number>,
-) {
+export function makeEnScorer(freqMap: Map<string, number>, bigramStats: Map<string, number>) {
     // Words missing from the list score 1, the hardest.
     function getFrequency(word: string): number {
         const rank = freqMap.get(word.toLowerCase());

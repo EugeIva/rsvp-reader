@@ -50,10 +50,10 @@ const PUNCTUATION = new Set([".", "!", "?", ";", ":", ",", "—", "…", '"', "'
 const OPENING_QUOTES = new Set(['"', "'", "«", "„", "“", "‘", "`", "\u2019"]);
 
 function quoteFamily(ch: string): string {
-    if (ch === '"' || ch === '\u201c' || ch === '\u201d' || ch === '\u00ab' || ch === '\u201e') return 'dbl';
-    if (ch === "'" || ch === '\u2018' || ch === '\u2019' || ch === '\u201a') return 'sng';
-    if (ch === '`') return 'btk';
-    if (ch === '\u00bb') return 'dbl';
+    if (ch === '"' || ch === "\u201c" || ch === "\u201d" || ch === "\u00ab" || ch === "\u201e") return "dbl";
+    if (ch === "'" || ch === "\u2018" || ch === "\u2019" || ch === "\u201a") return "sng";
+    if (ch === "`") return "btk";
+    if (ch === "\u00bb") return "dbl";
     return ch;
 }
 
@@ -114,8 +114,13 @@ export function tokenize(text: string): RsvpToken[] {
 
         // Case A: opening quote (not currently open) followed by a word → quote as prefix,
         // with optional immediately-following closing punctuation as suffix
-        if (!tok.isWord && OPENING_QUOTES.has(tok.text) && !hasQuoteOpen(tok.text)
-            && i + 1 < raw.length && raw[i + 1].isWord) {
+        if (
+            !tok.isWord &&
+            OPENING_QUOTES.has(tok.text) &&
+            !hasQuoteOpen(tok.text) &&
+            i + 1 < raw.length &&
+            raw[i + 1].isWord
+        ) {
             openQuotes.add(tok.text);
             const wordTok = raw[i + 1];
             let punctSuffix = "";
@@ -174,7 +179,14 @@ export function tokenize(text: string): RsvpToken[] {
             if (last && last.isWord && !last.punctSuffix) {
                 last.punctSuffix = tok.text;
             } else {
-                tokens.push({ text: tok.text, isWord: false, orpIndex: -1, isPunctuation: true, punctSuffix: "", quotePrefix: "" });
+                tokens.push({
+                    text: tok.text,
+                    isWord: false,
+                    orpIndex: -1,
+                    isPunctuation: true,
+                    punctSuffix: "",
+                    quotePrefix: "",
+                });
             }
             i++;
             continue;

@@ -61,8 +61,14 @@ export function scoreWord(word: string, lang?: Language): WordScore {
             word,
             score: 0,
             factors: {
-                frequency: 0, syllable: 0, length: 0, clusters: 0,
-                entropy: 0, properNoun: 0, familiar: 0, bigramRarity: 0,
+                frequency: 0,
+                syllable: 0,
+                length: 0,
+                clusters: 0,
+                entropy: 0,
+                properNoun: 0,
+                familiar: 0,
+                bigramRarity: 0,
             },
         };
     }

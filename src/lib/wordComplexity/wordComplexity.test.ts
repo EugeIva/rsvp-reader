@@ -39,7 +39,16 @@ describe("Russian scorer", () => {
     words[0] = "и";
     words[299_999] = "редчайшее";
     const freq = rankMap(words);
-    const scorer = makeRuScorer(freq, new Set(["и"]), ruBigrams(new Map([["и", 0], ["редчайшее", 1]])));
+    const scorer = makeRuScorer(
+        freq,
+        new Set(["и"]),
+        ruBigrams(
+            new Map([
+                ["и", 0],
+                ["редчайшее", 1],
+            ]),
+        ),
+    );
 
     it("keeps the frequency factor within [0, 1] for every rank", () => {
         expect(scorer.score("и").factors.frequency).toBe(0);
@@ -50,8 +59,9 @@ describe("Russian scorer", () => {
 
     it("treats words missing from the list as harder than any listed word", () => {
         expect(scorer.score("отсутствующее").factors.frequency).toBe(1);
-        expect(scorer.score("отсутствующее").factors.frequency)
-            .toBeGreaterThan(scorer.score("редчайшее").factors.frequency);
+        expect(scorer.score("отсутствующее").factors.frequency).toBeGreaterThan(
+            scorer.score("редчайшее").factors.frequency,
+        );
     });
 });
 

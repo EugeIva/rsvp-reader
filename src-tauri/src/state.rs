@@ -98,7 +98,11 @@ pub fn save_state(
 ) -> Result<(), String> {
     let path = state_path(&app, &book_id)?;
     write_state_json(&path, &data)?;
-    println!("save_state: wrote {} bytes to {:?}", fs::metadata(&path).map(|m| m.len()).unwrap_or(0), path);
+    println!(
+        "save_state: wrote {} bytes to {:?}",
+        fs::metadata(&path).map(|m| m.len()).unwrap_or(0),
+        path
+    );
     Ok(())
 }
 
@@ -138,7 +142,10 @@ const DEBUG_LOG_MAX_BYTES: u64 = 1024 * 1024;
 /// Move `path` to `<path>.1` once it reaches `max_bytes`, so the log keeps
 /// at most two files' worth of history.
 fn rotate_if_large(path: &Path, max_bytes: u64) {
-    if fs::metadata(path).map(|m| m.len() >= max_bytes).unwrap_or(false) {
+    if fs::metadata(path)
+        .map(|m| m.len() >= max_bytes)
+        .unwrap_or(false)
+    {
         let mut old = path.as_os_str().to_owned();
         old.push(".1");
         let _ = fs::rename(path, PathBuf::from(old));
@@ -257,7 +264,10 @@ mod tests {
         fs::write(&log, b"0123456789-too-big").unwrap();
         rotate_if_large(&log, 10);
         assert!(!log.exists(), "a large log is moved away");
-        assert_eq!(fs::read_to_string(dir.join("debug.log.1")).unwrap(), "0123456789-too-big");
+        assert_eq!(
+            fs::read_to_string(dir.join("debug.log.1")).unwrap(),
+            "0123456789-too-big"
+        );
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -272,7 +282,10 @@ mod tests {
         write_atomic(&path, b"{\"a\":1}").unwrap();
         write_atomic(&path, b"{\"a\":2}").unwrap();
         assert_eq!(fs::read_to_string(&path).unwrap(), "{\"a\":2}");
-        assert!(!dir.join("state.json.tmp").exists(), "temp file must be renamed away");
+        assert!(
+            !dir.join("state.json.tmp").exists(),
+            "temp file must be renamed away"
+        );
 
         let _ = fs::remove_dir_all(&dir);
     }

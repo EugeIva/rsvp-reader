@@ -1,8 +1,13 @@
 import { get } from "svelte/store";
 import { getChapterHtml } from "$lib/commands";
 import {
-    currentPage, chapterHtmls, chapterHtmlsLoaded, chapterPageCounts,
-    pendingWordAnchor, pageCountCache, chapterStartPage,
+    currentPage,
+    chapterHtmls,
+    chapterHtmlsLoaded,
+    chapterPageCounts,
+    pendingWordAnchor,
+    pageCountCache,
+    chapterStartPage,
 } from "$lib/stores";
 import type { BookState, ReaderMetrics } from "$lib/stores";
 import { layoutKey } from "$lib/utils/columns";
@@ -53,10 +58,11 @@ export function loadBook(b: BookState, metrics: ReaderMetrics): boolean {
 
 /** Fetch chapter `first` (the one shown), then the rest in parallel batches. */
 async function loadChapterHtmls(b: BookState, first: number) {
-    const fetchHtml = (ci: number) => getChapterHtml(ci).catch((e) => {
-        dbg(`chapter ${ci}: load failed`, String(e));
-        return CHAPTER_LOAD_FAILED;
-    });
+    const fetchHtml = (ci: number) =>
+        getChapterHtml(ci).catch((e) => {
+            dbg(`chapter ${ci}: load failed`, String(e));
+            return CHAPTER_LOAD_FAILED;
+        });
     const put = (indices: number[], htmls: string[]): boolean => {
         if (loadedBook !== b) return false; // another book was opened meanwhile
         chapterHtmls.update((hs) => {

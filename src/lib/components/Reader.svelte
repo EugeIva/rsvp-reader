@@ -2,8 +2,16 @@
     import { open } from "@tauri-apps/plugin-dialog";
     import { resolveChapterLink } from "$lib/commands";
     import {
-        book, currentPage, chapterHtmls, chapterPageCounts, readerTotalPages,
-        fontSize, rsvpActive, rsvpWordOffset, rsvpColumnTexts, rsvpColumnChapter,
+        book,
+        currentPage,
+        chapterHtmls,
+        chapterPageCounts,
+        readerTotalPages,
+        fontSize,
+        rsvpActive,
+        rsvpWordOffset,
+        rsvpColumnTexts,
+        rsvpColumnChapter,
     } from "$lib/stores";
     import { dbg } from "$lib/utils/debug";
     import { processHtmlDoc, wrapImages, unsizedImages } from "$lib/utils/columns";
@@ -92,7 +100,10 @@
     $effect(() => {
         const b = $book;
         if (!b) return;
-        if (!bootLogged) { bootLogged = true; dbg("Reader: mounted, book=" + b.title); }
+        if (!bootLogged) {
+            bootLogged = true;
+            dbg("Reader: mounted, book=" + b.title);
+        }
         // Load only when a book was (re)opened: switching page<->RSVP remounts
         // this component with the same book, which must keep its position.
         if (!needsLoad(b)) return;
@@ -128,7 +139,8 @@
             const wrapped = wrapImages(el);
             if (wrapped > 0) dbg(`wrapImages: ch${ci} wrapped ${wrapped} images`);
             // Images whose size wasn't known up front reflow the page when they load.
-            for (const img of unsizedImages(el)) img.addEventListener("load", () => pager.scheduleRelayout(), { once: true });
+            for (const img of unsizedImages(el))
+                img.addEventListener("load", () => pager.scheduleRelayout(), { once: true });
             pager.columnizeCurrent();
         });
     });
@@ -141,11 +153,17 @@
     });
 
     function goPrev() {
-        if ($currentPage > 0) { currentPage.set($currentPage - 1); rsvpWordOffset.set(0); }
+        if ($currentPage > 0) {
+            currentPage.set($currentPage - 1);
+            rsvpWordOffset.set(0);
+        }
     }
 
     function goNext() {
-        if ($currentPage < $readerTotalPages - 1) { currentPage.set($currentPage + 1); rsvpWordOffset.set(0); }
+        if ($currentPage < $readerTotalPages - 1) {
+            currentPage.set($currentPage + 1);
+            rsvpWordOffset.set(0);
+        }
     }
 
     function changeFont(delta: number) {
@@ -182,21 +200,22 @@
                         const pCount = $chapterPageCounts[currentChapter] || 1;
                         const col = Math.max(0, Math.min(pCount - 1, Math.floor(relLeft / containerWidth)));
                         let targetPage = 0;
-                        for (let ci = 0; ci < currentChapter; ci++)
-                            targetPage += $chapterPageCounts[ci] || 1;
+                        for (let ci = 0; ci < currentChapter; ci++) targetPage += $chapterPageCounts[ci] || 1;
                         targetPage += col;
                         if (targetPage !== $currentPage) currentPage.set(targetPage);
                     }
                     targetEl.scrollIntoView({ block: "start" });
                 }
             } else {
-                resolveChapterLink(href, currentChapter).then((resolved) => {
-                    let offset = 0;
-                    for (let ci = 0; ci < resolved.chapter_index; ci++) offset += $chapterPageCounts[ci] || 1;
-                    pager.pendingAnchor = resolved.anchor;
-                    currentPage.set(offset);
-                    rsvpWordOffset.set(0);
-                }).catch(() => {});
+                resolveChapterLink(href, currentChapter)
+                    .then((resolved) => {
+                        let offset = 0;
+                        for (let ci = 0; ci < resolved.chapter_index; ci++) offset += $chapterPageCounts[ci] || 1;
+                        pager.pendingAnchor = resolved.anchor;
+                        currentPage.set(offset);
+                        rsvpWordOffset.set(0);
+                    })
+                    .catch(() => {});
             }
             return;
         }
@@ -204,11 +223,26 @@
     }
 
     function onKeyDown(e: KeyboardEvent) {
-        if (e.key === "ArrowLeft") { e.preventDefault(); goPrev(); }
-        if (e.key === "ArrowRight") { e.preventDefault(); goNext(); }
-        if (e.key === "9") { e.preventDefault(); changeFont(0.1); }
-        if (e.key === "0") { e.preventDefault(); changeFont(-0.1); }
-        if (e.key === "a" || e.key === "A") { e.preventDefault(); enterRsvp(); }
+        if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            goPrev();
+        }
+        if (e.key === "ArrowRight") {
+            e.preventDefault();
+            goNext();
+        }
+        if (e.key === "9") {
+            e.preventDefault();
+            changeFont(0.1);
+        }
+        if (e.key === "0") {
+            e.preventDefault();
+            changeFont(-0.1);
+        }
+        if (e.key === "a" || e.key === "A") {
+            e.preventDefault();
+            enterRsvp();
+        }
     }
 
     async function handleOpen() {
@@ -219,7 +253,9 @@
         if (!selected) return;
         try {
             await openBook(selected);
-        } catch (e) { dbg("open failed", String(e)); }
+        } catch (e) {
+            dbg("open failed", String(e));
+        }
     }
 </script>
 
@@ -234,18 +270,19 @@
     </div>
 
     <div class="page-area">
-        <div
-            class="epub-viewport"
-            bind:this={containerEl}
-            style="--page-h: {effectiveHeight}px;"
-        >
+        <div class="epub-viewport" bind:this={containerEl} style="--page-h: {effectiveHeight}px;">
             <div
                 class="epub-flow"
                 style="font-size: {$fontSize}rem; line-height: {lineHeight};"
                 role="button"
                 tabindex="0"
                 onclick={clickWord}
-                onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); clickWord(e); } }}
+                onkeydown={(e) => {
+                    if (e.key === "Enter") {
+                        e.preventDefault();
+                        clickWord(e);
+                    }
+                }}
             >
                 {#if processedHtml}
                     <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitized by DOMPurify in processHtmlDoc -->
@@ -261,16 +298,14 @@
         <span class="word-count">{pager.pageWordCount} words</span>
         <span class="page-num">
             {$readerTotalPages > 0
-                ? (!pager.premeasureDone
+                ? !pager.premeasureDone
                     ? `Page ${$currentPage + 1} of …`
-                    : `Page ${$currentPage + 1} of ${$readerTotalPages}`)
+                    : `Page ${$currentPage + 1} of ${$readerTotalPages}`
                 : ""}
             &ensp;|&ensp;font {$fontSize}rem
         </span>
         <div class="page-nav">
-            <button class="nav-btn" onclick={goPrev} disabled={$currentPage <= 0}>
-                &larr; Prev
-            </button>
+            <button class="nav-btn" onclick={goPrev} disabled={$currentPage <= 0}> &larr; Prev </button>
             <button class="nav-btn" onclick={goNext} disabled={$currentPage >= $readerTotalPages - 1}>
                 Next &rarr;
             </button>
@@ -279,23 +314,111 @@
 </div>
 
 <style>
-    .reader { display:flex; flex-direction:column; height:100vh; background:#000; color:#e0e0e0; }
-    .toolbar { display:flex; align-items:center; gap:1rem; padding:0.5rem 1rem; background:#111; border-bottom:1px solid #222; flex-shrink:0; }
-    .title { font-weight:600; font-size:0.95rem; }
-    .spacer { flex:1; }
-    .rsvp-btn { padding:0.3rem 0.8rem; border:1px solid #6a9cf5; border-radius:6px; background:#1a2a40; color:#6a9cf5; cursor:pointer; font-size:0.85rem; }
-    .rsvp-btn:hover { background:#1a3050; }
-    .open-btn { padding:0.3rem 0.8rem; border:1px solid #444; border-radius:6px; background:transparent; color:#e0e0e0; cursor:pointer; font-size:0.85rem; }
-    .open-btn:hover { border-color:#6a9cf5; color:#6a9cf5; }
-    .page-area { flex:1; position:relative; overflow:hidden; }
-    .epub-viewport { position:absolute; inset:0; margin:1.5rem 2rem; overflow-y:hidden; overflow-x:auto; box-sizing:border-box; scrollbar-width:none; }
-    .epub-viewport::-webkit-scrollbar { display:none; }
-    .loading-text { color:#666; font-size:1rem; }
-    .bottom-bar { display:flex; align-items:center; justify-content:space-between; padding:0.5rem 1rem; background:#111; border-top:1px solid #222; flex-shrink:0; }
-    .word-count { font-size:0.8rem; color:#666; }
-    .page-num { font-size:0.85rem; color:#888; }
-    .page-nav { display:flex; gap:0.5rem; }
-    .nav-btn { padding:0.3rem 0.8rem; border:1px solid #444; border-radius:6px; background:#1a1a1a; color:#e0e0e0; cursor:pointer; font-size:0.85rem; }
-    .nav-btn:hover:not(:disabled) { border-color:#6a9cf5; color:#6a9cf5; }
-    .nav-btn:disabled { opacity:0.3; cursor:not-allowed; }
+    .reader {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        background: #000;
+        color: #e0e0e0;
+    }
+    .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.5rem 1rem;
+        background: #111;
+        border-bottom: 1px solid #222;
+        flex-shrink: 0;
+    }
+    .title {
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+    .spacer {
+        flex: 1;
+    }
+    .rsvp-btn {
+        padding: 0.3rem 0.8rem;
+        border: 1px solid #6a9cf5;
+        border-radius: 6px;
+        background: #1a2a40;
+        color: #6a9cf5;
+        cursor: pointer;
+        font-size: 0.85rem;
+    }
+    .rsvp-btn:hover {
+        background: #1a3050;
+    }
+    .open-btn {
+        padding: 0.3rem 0.8rem;
+        border: 1px solid #444;
+        border-radius: 6px;
+        background: transparent;
+        color: #e0e0e0;
+        cursor: pointer;
+        font-size: 0.85rem;
+    }
+    .open-btn:hover {
+        border-color: #6a9cf5;
+        color: #6a9cf5;
+    }
+    .page-area {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+    }
+    .epub-viewport {
+        position: absolute;
+        inset: 0;
+        margin: 1.5rem 2rem;
+        overflow-y: hidden;
+        overflow-x: auto;
+        box-sizing: border-box;
+        scrollbar-width: none;
+    }
+    .epub-viewport::-webkit-scrollbar {
+        display: none;
+    }
+    .loading-text {
+        color: #666;
+        font-size: 1rem;
+    }
+    .bottom-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem 1rem;
+        background: #111;
+        border-top: 1px solid #222;
+        flex-shrink: 0;
+    }
+    .word-count {
+        font-size: 0.8rem;
+        color: #666;
+    }
+    .page-num {
+        font-size: 0.85rem;
+        color: #888;
+    }
+    .page-nav {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .nav-btn {
+        padding: 0.3rem 0.8rem;
+        border: 1px solid #444;
+        border-radius: 6px;
+        background: #1a1a1a;
+        color: #e0e0e0;
+        cursor: pointer;
+        font-size: 0.85rem;
+    }
+    .nav-btn:hover:not(:disabled) {
+        border-color: #6a9cf5;
+        color: #6a9cf5;
+    }
+    .nav-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
 </style>

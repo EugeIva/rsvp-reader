@@ -98,7 +98,7 @@ function chapterBody(raw: string): string {
  */
 export async function processHtmlDoc(
     raw: string,
-    opts: { forMeasure?: boolean } = {}
+    opts: { forMeasure?: boolean } = {},
 ): Promise<{ html: string; error: boolean }> {
     try {
         const frag = DOMPurify.sanitize(chapterBody(raw), { ...SANITIZE_CONFIG, RETURN_DOM_FRAGMENT: true });
@@ -157,9 +157,11 @@ export function wrapImages(flow: HTMLElement): number {
         if (img.parentElement?.style.cssText.includes("inline-block")) continue;
         const container = img.closest("div, figure, p") ?? img.parentElement ?? flow;
         const nextBlock = container?.nextElementSibling;
-        const isCaption = nextBlock && nextBlock.tagName.toLowerCase() === "p" &&
+        const isCaption =
+            nextBlock &&
+            nextBlock.tagName.toLowerCase() === "p" &&
             ((nextBlock.textContent?.length ?? 0) < 120 ||
-             /^(Рис\.|Fig\.|Figure|Таблица|Table)/.test(nextBlock.textContent?.trim() ?? ""));
+                /^(Рис\.|Fig\.|Figure|Таблица|Table)/.test(nextBlock.textContent?.trim() ?? ""));
 
         const w = document.createElement("div");
         w.style.cssText = IMAGE_WRAPPER_CSS;
@@ -261,18 +263,13 @@ function flowLeftOf(el: HTMLElement): number {
  * source of truth for both page-mode word counts and RSVP token text, so the
  * two modes always agree.
  */
-export function extractColumnWords(
-    el: HTMLElement,
-    pageW: number,
-    pageCount: number
-): string[][] {
+export function extractColumnWords(el: HTMLElement, pageW: number, pageCount: number): string[][] {
     const cols: string[][] = Array.from({ length: pageCount }, () => []);
     if (pageW <= 0 || pageCount <= 0) return cols;
     const origin = flowLeftOf(el);
     // The 1px tolerance keeps a word that starts exactly on a column edge
     // from being rounded into the previous column.
-    const columnAt = (x: number) =>
-        Math.max(0, Math.min(pageCount - 1, Math.floor((x - origin + 1) / pageW)));
+    const columnAt = (x: number) => Math.max(0, Math.min(pageCount - 1, Math.floor((x - origin + 1) / pageW)));
 
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
     while (walker.nextNode()) {
@@ -321,7 +318,7 @@ export function extractColumnTexts(el: HTMLElement, pageW: number, pageCount: nu
 async function withOffscreenFlow<T>(
     rawHtml: string,
     metrics: ReaderMetrics,
-    measure: (flow: HTMLElement) => T
+    measure: (flow: HTMLElement) => T,
 ): Promise<T> {
     const { html } = await processHtmlDoc(rawHtml, { forMeasure: true });
 
@@ -358,7 +355,7 @@ async function withOffscreenFlow<T>(
  */
 export async function columnizeOffscreen(
     rawHtml: string,
-    metrics: ReaderMetrics
+    metrics: ReaderMetrics,
 ): Promise<{ texts: string[]; pageCount: number }> {
     const { pageW, pageH } = metrics;
     if (pageW <= 0 || pageH <= 0) return { texts: [], pageCount: 1 };

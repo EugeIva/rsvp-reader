@@ -7,11 +7,7 @@ const RU_VOWELS = new Set(["а", "е", "ё", "и", "о", "у", "ы", "э", "ю",
 const MAX_LENGTH = 30;
 const MAX_SYLLABLES = 12;
 
-export function makeRuScorer(
-    freqMap: Map<string, number>,
-    top5000: Set<string>,
-    bigramStats: Map<string, number>,
-) {
+export function makeRuScorer(freqMap: Map<string, number>, top5000: Set<string>, bigramStats: Map<string, number>) {
     // Normalized by the loaded list's size (a fixed total of 200000 against a
     // 1.4M-word list produced values up to ~7). Missing words score 1, the hardest.
     function getFrequency(word: string): number {

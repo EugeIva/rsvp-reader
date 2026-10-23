@@ -37,7 +37,10 @@ pub fn content_id(bytes: &[u8]) -> String {
 // command runs on the main thread and blocks the UI while it works.
 
 #[tauri::command]
-pub async fn open_epub(path: String, state: tauri::State<'_, AppState>) -> Result<BookMetadata, String> {
+pub async fn open_epub(
+    path: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<BookMetadata, String> {
     let epub = Epub::open(&path).map_err(|e| format!("Failed to open EPUB: {e}"))?;
     let id = content_id(&std::fs::read(&path).map_err(|e| format!("Failed to read EPUB: {e}"))?);
 
@@ -74,7 +77,10 @@ pub async fn open_epub(path: String, state: tauri::State<'_, AppState>) -> Resul
 /// with a scheme are left alone. Chapters that aren't well-formed XML can't
 /// be rewritten and are returned unchanged.
 #[tauri::command]
-pub async fn get_chapter_html(index: usize, state: tauri::State<'_, AppState>) -> Result<String, String> {
+pub async fn get_chapter_html(
+    index: usize,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, String> {
     let guard = state.epub.lock().map_err(|e| e.to_string())?;
     let epub = guard.as_ref().ok_or("No book loaded")?;
     let rewrite = EpubRewriteOptions::new().rewrite_paths(PathRewrite::root_relative());
@@ -114,7 +120,10 @@ pub fn mime_for(path: &str) -> &'static str {
 /// without loading the images. `None` where the size can't be determined
 /// (missing resource, or a format such as SVG).
 #[tauri::command]
-pub async fn get_image_sizes(paths: Vec<String>, state: tauri::State<'_, AppState>) -> Result<Vec<Option<[usize; 2]>>, String> {
+pub async fn get_image_sizes(
+    paths: Vec<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<Option<[usize; 2]>>, String> {
     Ok(paths
         .iter()
         .map(|p| {
@@ -130,7 +139,11 @@ pub async fn get_image_sizes(paths: Vec<String>, state: tauri::State<'_, AppStat
 /// `base`. Returns the percent-decoded, normalized absolute path and the
 /// decoded fragment. The path is empty for a fragment-only link.
 pub fn resolve_link(base: &str, href: &str) -> (String, Option<String>) {
-    let decode = |s: &str| percent_encoding::percent_decode_str(s).decode_utf8_lossy().into_owned();
+    let decode = |s: &str| {
+        percent_encoding::percent_decode_str(s)
+            .decode_utf8_lossy()
+            .into_owned()
+    };
     let (rest, fragment) = match href.split_once('#') {
         Some((p, f)) => (p, Some(decode(f))),
         None => (href, None),
@@ -165,7 +178,11 @@ pub fn find_chapter(chapter_paths: &[String], path: &str) -> Option<usize> {
 
 /// Resolve a link clicked in chapter `from` to the chapter it points at.
 #[tauri::command]
-pub async fn resolve_chapter_link(href: String, from: usize, state: tauri::State<'_, AppState>) -> Result<ResolvedLink, String> {
+pub async fn resolve_chapter_link(
+    href: String,
+    from: usize,
+    state: tauri::State<'_, AppState>,
+) -> Result<ResolvedLink, String> {
     let guard = state.epub.lock().map_err(|e| e.to_string())?;
     let epub = guard.as_ref().ok_or("No book loaded")?;
 
@@ -192,7 +209,10 @@ pub async fn resolve_chapter_link(href: String, from: usize, state: tauri::State
     }
 
     find_chapter(&chapter_paths, &path)
-        .map(|chapter_index| ResolvedLink { chapter_index, anchor })
+        .map(|chapter_index| ResolvedLink {
+            chapter_index,
+            anchor,
+        })
         .ok_or_else(|| format!("No chapter found for link '{href}'"))
 }
 
@@ -213,27 +233,51 @@ mod tests {
     #[test]
     fn test_resolve_link_relative_to_chapter() {
         let base = "/OEBPS/Text/ch1.xhtml";
-        assert_eq!(resolve_link(base, "ch2.xhtml"), ("/OEBPS/Text/ch2.xhtml".into(), None));
-        assert_eq!(resolve_link(base, "./ch2.xhtml#n1"), ("/OEBPS/Text/ch2.xhtml".into(), Some("n1".into())));
-        assert_eq!(resolve_link(base, "../Notes/notes.xhtml#fn3"), ("/OEBPS/Notes/notes.xhtml".into(), Some("fn3".into())));
-        assert_eq!(resolve_link(base, "/OEBPS/Text/ch9.xhtml"), ("/OEBPS/Text/ch9.xhtml".into(), None));
+        assert_eq!(
+            resolve_link(base, "ch2.xhtml"),
+            ("/OEBPS/Text/ch2.xhtml".into(), None)
+        );
+        assert_eq!(
+            resolve_link(base, "./ch2.xhtml#n1"),
+            ("/OEBPS/Text/ch2.xhtml".into(), Some("n1".into()))
+        );
+        assert_eq!(
+            resolve_link(base, "../Notes/notes.xhtml#fn3"),
+            ("/OEBPS/Notes/notes.xhtml".into(), Some("fn3".into()))
+        );
+        assert_eq!(
+            resolve_link(base, "/OEBPS/Text/ch9.xhtml"),
+            ("/OEBPS/Text/ch9.xhtml".into(), None)
+        );
     }
 
     #[test]
     fn test_resolve_link_decodes_and_strips_query() {
         let base = "/OEBPS/My%20Book/ch1.xhtml";
-        assert_eq!(resolve_link(base, "Part%202.xhtml?x=1#sec%201"), ("/OEBPS/My Book/Part 2.xhtml".into(), Some("sec 1".into())));
+        assert_eq!(
+            resolve_link(base, "Part%202.xhtml?x=1#sec%201"),
+            ("/OEBPS/My Book/Part 2.xhtml".into(), Some("sec 1".into()))
+        );
     }
 
     #[test]
     fn test_resolve_link_fragment_only() {
-        assert_eq!(resolve_link("/OEBPS/ch1.xhtml", "#fn2"), (String::new(), Some("fn2".into())));
+        assert_eq!(
+            resolve_link("/OEBPS/ch1.xhtml", "#fn2"),
+            (String::new(), Some("fn2".into()))
+        );
     }
 
     #[test]
     fn test_find_chapter_is_exact() {
-        let chapters: Vec<String> = ["/OEBPS/ch1.xhtml", "/OEBPS/ch11.xhtml", "/OEBPS/text/1.xhtml"]
-            .iter().map(|s| s.to_string()).collect();
+        let chapters: Vec<String> = [
+            "/OEBPS/ch1.xhtml",
+            "/OEBPS/ch11.xhtml",
+            "/OEBPS/text/1.xhtml",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
         assert_eq!(find_chapter(&chapters, "/OEBPS/ch11.xhtml"), Some(1));
         // The old suffix matching sent "1.xhtml" to "ch11.xhtml" (or ch1.xhtml).
         assert_eq!(find_chapter(&chapters, "/OEBPS/1.xhtml"), None);

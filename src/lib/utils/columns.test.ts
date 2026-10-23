@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 
 const getImageSizes = vi.fn(async (paths: string[]) =>
-    paths.map((p) => (p === "images/pic.png" ? ([640, 480] as [number, number]) : null))
+    paths.map((p) => (p === "images/pic.png" ? ([640, 480] as [number, number]) : null)),
 );
 vi.mock("$lib/commands", () => ({ getImageSizes: (paths: string[]) => getImageSizes(paths) }));
 vi.mock("@tauri-apps/api/core", () => ({
@@ -35,7 +35,7 @@ describe("processHtmlDoc", () => {
     });
 
     it("removes scripts, including inside SVG", async () => {
-        const el = await sanitized('<p>a</p><script>alert(1)</script><svg><script>alert(2)</script></svg>');
+        const el = await sanitized("<p>a</p><script>alert(1)</script><svg><script>alert(2)</script></svg>");
         expect(el.querySelector("script")).toBeNull();
         expect(el.innerHTML).not.toContain("alert");
     });
@@ -48,8 +48,8 @@ describe("processHtmlDoc", () => {
     it("removes javascript: links but keeps normal and footnote links", async () => {
         const el = await sanitized(
             '<a id="bad" href="javascript:alert(1)">x</a>' +
-            '<a id="web" href="https://example.com/">w</a>' +
-            '<a id="note" href="notes.xhtml#fn1">n</a>'
+                '<a id="web" href="https://example.com/">w</a>' +
+                '<a id="note" href="notes.xhtml#fn1">n</a>',
         );
         expect(el.querySelector("#bad")?.getAttribute("href")).toBeNull();
         expect(el.querySelector("#web")?.getAttribute("href")).toBe("https://example.com/");
@@ -60,10 +60,10 @@ describe("processHtmlDoc", () => {
     it("removes embedded documents, forms, stylesheets and navigation tags", async () => {
         const el = await sanitized(
             '<iframe src="x.html"></iframe><object data="x"></object><embed src="x">' +
-            '<form action="https://evil.example/"><input name="q"><button>go</button></form>' +
-            '<style>p{color:red}</style><link rel="stylesheet" href="s.css">' +
-            '<meta http-equiv="refresh" content="0;url=https://evil.example/"><base href="https://evil.example/">' +
-            "<p>text</p>"
+                '<form action="https://evil.example/"><input name="q"><button>go</button></form>' +
+                '<style>p{color:red}</style><link rel="stylesheet" href="s.css">' +
+                '<meta http-equiv="refresh" content="0;url=https://evil.example/"><base href="https://evil.example/">' +
+                "<p>text</p>",
         );
         for (const tag of ["iframe", "object", "embed", "form", "input", "button", "style", "link", "meta", "base"]) {
             expect(el.querySelector(tag), tag).toBeNull();
@@ -82,13 +82,18 @@ describe("processHtmlDoc", () => {
     });
 
     it("serves absolute book paths (as rewritten by the backend) over epub://", async () => {
-        const el = await sanitized('<img id="abs" src="/OEBPS/Images/pic.png"><a id="lnk" href="/OEBPS/Text/ch2.xhtml#n1">n</a>');
+        const el = await sanitized(
+            '<img id="abs" src="/OEBPS/Images/pic.png"><a id="lnk" href="/OEBPS/Text/ch2.xhtml#n1">n</a>',
+        );
         expect(el.querySelector("#abs")?.getAttribute("src")).toBe("epub://localhost/%2FOEBPS%2FImages%2Fpic.png");
         expect(el.querySelector("#lnk")?.getAttribute("href")).toBe("/OEBPS/Text/ch2.xhtml#n1");
     });
 
     it("uses a blank placeholder for measuring, keeping the size, so nothing is downloaded", async () => {
-        const { html } = await processHtmlDoc(chapter('<img id="ok" src="images/pic.png"><img id="unknown" src="x.svg">'), { forMeasure: true });
+        const { html } = await processHtmlDoc(
+            chapter('<img id="ok" src="images/pic.png"><img id="unknown" src="x.svg">'),
+            { forMeasure: true },
+        );
         const el = document.createElement("div");
         el.innerHTML = html;
         const ok = el.querySelector<HTMLImageElement>("#ok")!;
@@ -113,13 +118,13 @@ describe("processHtmlDoc", () => {
     it("blocks remote resources", async () => {
         const el = await sanitized(
             '<img id="http" src="http://tracker.example/p.gif">' +
-            '<img id="https" src="https://tracker.example/p.gif">' +
-            '<img id="proto" src="//tracker.example/p.gif">' +
-            '<img id="srcset" srcset="a.png 1x, https://tracker.example/p.gif 2x">' +
-            '<video id="video" poster="https://tracker.example/p.jpg"></video>' +
-            '<svg><image id="svgimg" href="https://tracker.example/p.svg"></image></svg>' +
-            '<p id="bg" style="background:url(https://tracker.example/p.gif)">a</p>' +
-            '<p id="plain" style="color: red">b</p>'
+                '<img id="https" src="https://tracker.example/p.gif">' +
+                '<img id="proto" src="//tracker.example/p.gif">' +
+                '<img id="srcset" srcset="a.png 1x, https://tracker.example/p.gif 2x">' +
+                '<video id="video" poster="https://tracker.example/p.jpg"></video>' +
+                '<svg><image id="svgimg" href="https://tracker.example/p.svg"></image></svg>' +
+                '<p id="bg" style="background:url(https://tracker.example/p.gif)">a</p>' +
+                '<p id="plain" style="color: red">b</p>',
         );
         expect(el.querySelector("#http")?.getAttribute("src")).toBeNull();
         expect(el.querySelector("#https")?.getAttribute("src")).toBeNull();
@@ -184,9 +189,9 @@ describe("processHtmlDoc", () => {
                 parseFromString(): Document {
                     throw new Error("parse failed");
                 }
-            }
+            },
         );
-        const raw = chapter('<script>alert(1)</script><p>secret</p>');
+        const raw = chapter("<script>alert(1)</script><p>secret</p>");
         const { html, error } = await processHtmlDoc(raw);
         expect(error).toBe(true);
         expect(html).not.toContain("<script");

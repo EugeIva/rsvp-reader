@@ -39,7 +39,7 @@ export const chapterPageCounts = writable<number[]>([]);
 export const fontSize = writable(1.2);
 
 export const readerTotalPages = derived(chapterPageCounts, ($counts) =>
-    $counts.length ? $counts.reduce((a, b) => a + b, 0) : 0
+    $counts.length ? $counts.reduce((a, b) => a + b, 0) : 0,
 );
 
 // First word of the page currently shown (page or RSVP mode); null until a

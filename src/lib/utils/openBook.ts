@@ -1,7 +1,15 @@
 import { openEpub } from "$lib/commands";
 import {
-    book, currentPage, fontSize, rsvpConfig, rsvpWordOffset, rsvpActive,
-    pageStart, pendingWordAnchor, legacyPage, pageCountCache,
+    book,
+    currentPage,
+    fontSize,
+    rsvpConfig,
+    rsvpWordOffset,
+    rsvpActive,
+    pageStart,
+    pendingWordAnchor,
+    legacyPage,
+    pageCountCache,
 } from "$lib/stores";
 import { DEFAULT_RSVP_CONFIG } from "$lib/utils/rsvp";
 import { loadState } from "$lib/utils/persistence";
@@ -51,7 +59,11 @@ export async function openBook(path: string): Promise<void> {
         });
     }
 
-    try { localStorage.setItem(LAST_PATH_KEY, path); } catch { /* best-effort */ }
+    try {
+        localStorage.setItem(LAST_PATH_KEY, path);
+    } catch {
+        /* best-effort */
+    }
     book.set({
         id: meta.id,
         title: meta.title,

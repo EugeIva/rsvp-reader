@@ -10,7 +10,10 @@ describe("Countdown", () => {
         vi.useFakeTimers();
         total = 3;
         expired = 0;
-        countdown = new Countdown(() => total, () => expired++);
+        countdown = new Countdown(
+            () => total,
+            () => expired++,
+        );
     });
 
     afterEach(() => {

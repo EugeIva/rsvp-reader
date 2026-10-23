@@ -133,9 +133,9 @@ describe("getORP", () => {
     });
 
     it("returns floor(length / 3) for multi-character words", () => {
-        expect(getORP("hello")).toBe(1);   // Math.floor(5/3) = 1
+        expect(getORP("hello")).toBe(1); // Math.floor(5/3) = 1
         expect(getORP("München")).toBe(2); // Math.floor(7/3) = 2
-        expect(getORP("café")).toBe(1);    // Math.floor(4/3) = 1
+        expect(getORP("café")).toBe(1); // Math.floor(4/3) = 1
     });
 });
 
@@ -143,26 +143,54 @@ describe("calculateDelay", () => {
     const config: RsvpConfig = { ...DEFAULT_RSVP_CONFIG, complexityWeight: 0 };
 
     it("returns 0 for punctuation tokens", () => {
-        const tok: RsvpToken = { text: ".", isWord: false, orpIndex: -1, isPunctuation: true, punctSuffix: "", quotePrefix: "" };
+        const tok: RsvpToken = {
+            text: ".",
+            isWord: false,
+            orpIndex: -1,
+            isPunctuation: true,
+            punctSuffix: "",
+            quotePrefix: "",
+        };
         expect(calculateDelay(tok, config)).toBe(200);
     });
 
     it("returns base delay for short word with variable delay off", () => {
         const cfg = { ...config, longWordDelay: false, punctuationPause: false };
-        const tok: RsvpToken = { text: "cat", isWord: true, orpIndex: 0, isPunctuation: false, punctSuffix: "", quotePrefix: "" };
+        const tok: RsvpToken = {
+            text: "cat",
+            isWord: true,
+            orpIndex: 0,
+            isPunctuation: false,
+            punctSuffix: "",
+            quotePrefix: "",
+        };
         expect(calculateDelay(tok, cfg)).toBe(200);
     });
 
     it("returns delay based on word length with variable delay on", () => {
         const cfg = { ...config, longWordDelay: true, longWordThreshold: 7, longWordMultiplier: 0.5 };
-        const tok: RsvpToken = { text: "incomprehensibilities", isWord: true, orpIndex: 6, isPunctuation: false, punctSuffix: "", quotePrefix: "" };
+        const tok: RsvpToken = {
+            text: "incomprehensibilities",
+            isWord: true,
+            orpIndex: 6,
+            isPunctuation: false,
+            punctSuffix: "",
+            quotePrefix: "",
+        };
         const delay = calculateDelay(tok, cfg);
         expect(delay).toBeGreaterThan(200);
     });
 
     it("includes punctuation pause when suffix present", () => {
         const cfg = { ...config, punctuationPause: true, punctuationDelayMs: 200 };
-        const tok: RsvpToken = { text: "hello", isWord: true, orpIndex: 1, isPunctuation: false, punctSuffix: ",", quotePrefix: "" };
+        const tok: RsvpToken = {
+            text: "hello",
+            isWord: true,
+            orpIndex: 1,
+            isPunctuation: false,
+            punctSuffix: ",",
+            quotePrefix: "",
+        };
         const delay = calculateDelay(tok, cfg);
         expect(delay).toBeGreaterThanOrEqual(400);
     });
@@ -240,7 +268,7 @@ describe("RsvpEngine", () => {
             tokenize(text),
             config,
             (tok) => shown.push(tok.text),
-            () => ended++
+            () => ended++,
         );
     }
 
@@ -378,9 +406,21 @@ describe("tokenize — word shapes", () => {
 describe("getORP and calculateDelay — more cases", () => {
     const base: RsvpConfig = { ...DEFAULT_RSVP_CONFIG, complexityWeight: 0 };
     const word = (text: string, punctSuffix = ""): RsvpToken => ({
-        text, isWord: true, orpIndex: getORP(text), isPunctuation: false, punctSuffix, quotePrefix: "",
+        text,
+        isWord: true,
+        orpIndex: getORP(text),
+        isPunctuation: false,
+        punctSuffix,
+        quotePrefix: "",
     });
-    const comma: RsvpToken = { text: ",", isWord: false, orpIndex: -1, isPunctuation: true, punctSuffix: "", quotePrefix: "" };
+    const comma: RsvpToken = {
+        text: ",",
+        isWord: false,
+        orpIndex: -1,
+        isPunctuation: true,
+        punctSuffix: "",
+        quotePrefix: "",
+    };
 
     it("puts the ORP a third of the way in", () => {
         expect(getORP("he")).toBe(0);

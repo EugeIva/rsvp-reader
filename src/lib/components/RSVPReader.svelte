@@ -44,7 +44,18 @@
         <button class="exit-btn" onclick={() => playback.stop()}>Page mode (A)</button>
     </div>
 
-    <div class="word-area" role="button" tabindex="0" onclick={() => playback.togglePlay()} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); playback.togglePlay(); } }}>
+    <div
+        class="word-area"
+        role="button"
+        tabindex="0"
+        onclick={() => playback.togglePlay()}
+        onkeydown={(e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                playback.togglePlay();
+            }
+        }}
+    >
         {#if playback.currentToken}
             {@const currentToken = playback.currentToken}
             <div class="word-display">
@@ -103,7 +114,9 @@
         font-size: 0.95rem;
     }
 
-    .spacer { flex: 1; }
+    .spacer {
+        flex: 1;
+    }
 
     .page-num {
         font-size: 0.85rem;
@@ -141,12 +154,25 @@
         line-height: 1.3;
     }
 
-    .pre { color: #e0e0e0; }
-    .orp { color: #f55; }
-    .post { color: #e0e0e0; }
-    .punct-suffix { color: #e0e0e0; }
-    .quote-prefix { color: #e0e0e0; }
-    .punct { color: #888; font-size: 2rem; }
+    .pre {
+        color: #e0e0e0;
+    }
+    .orp {
+        color: #f55;
+    }
+    .post {
+        color: #e0e0e0;
+    }
+    .punct-suffix {
+        color: #e0e0e0;
+    }
+    .quote-prefix {
+        color: #e0e0e0;
+    }
+    .punct {
+        color: #888;
+        font-size: 2rem;
+    }
 
     .placeholder {
         font-size: 1.2rem;

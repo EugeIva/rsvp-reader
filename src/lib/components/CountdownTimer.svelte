@@ -35,9 +35,25 @@
     }
 </script>
 
-<input type="text" inputmode="numeric" maxlength="2" value={Math.floor(shown / 60)} oninput={setTimerMin} class="timer-input timer-min" disabled={locked} />
+<input
+    type="text"
+    inputmode="numeric"
+    maxlength="2"
+    value={Math.floor(shown / 60)}
+    oninput={setTimerMin}
+    class="timer-input timer-min"
+    disabled={locked}
+/>
 <span class="timer-colon">:</span>
-<input type="text" inputmode="numeric" maxlength="2" value={shown % 60} oninput={setTimerSec} class="timer-input timer-sec" disabled={locked} />
+<input
+    type="text"
+    inputmode="numeric"
+    maxlength="2"
+    value={shown % 60}
+    oninput={setTimerSec}
+    class="timer-input timer-sec"
+    disabled={locked}
+/>
 
 <style>
     .timer-input {

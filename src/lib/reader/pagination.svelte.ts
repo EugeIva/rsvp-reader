@@ -3,10 +3,21 @@
 /* eslint-disable svelte/prefer-svelte-reactivity */
 import { get } from "svelte/store";
 import {
-    book, currentPage, chapterHtmls, chapterPageCounts, readerTotalPages,
-    fontSize, rsvpWordOffset, readerMetrics,
-    pageStart, pendingWordAnchor, legacyPage, pageCountCache,
-    chapterStartPage, updatePageCounts, whenChapterHtmlsLoaded,
+    book,
+    currentPage,
+    chapterHtmls,
+    chapterPageCounts,
+    readerTotalPages,
+    fontSize,
+    rsvpWordOffset,
+    readerMetrics,
+    pageStart,
+    pendingWordAnchor,
+    legacyPage,
+    pageCountCache,
+    chapterStartPage,
+    updatePageCounts,
+    whenChapterHtmlsLoaded,
 } from "$lib/stores";
 import type { ReaderMetrics } from "$lib/stores";
 import { dbg } from "$lib/utils/debug";
@@ -100,10 +111,15 @@ export class Pagination {
     scheduleRelayout = () => {
         if (this.relayoutTimer) clearTimeout(this.relayoutTimer);
         this.relayoutTimer = setTimeout(() => {
-            if (this.relayoutRunning) { this.scheduleRelayout(); return; }
+            if (this.relayoutRunning) {
+                this.scheduleRelayout();
+                return;
+            }
             this.relayoutRunning = true;
             this.relayoutTimer = null;
-            this.relayout().finally(() => { this.relayoutRunning = false; });
+            this.relayout().finally(() => {
+                this.relayoutRunning = false;
+            });
         }, 150);
     };
 
@@ -157,7 +173,7 @@ export class Pagination {
         dbg(`measure: ch${ci} pages=${count} total=${get(readerTotalPages)}`);
         this.columnTextsByChapter = new Map(this.columnTextsByChapter).set(
             ci,
-            this.columnWordsCache.map((a) => a.join(" "))
+            this.columnWordsCache.map((a) => a.join(" ")),
         );
         readerMetrics.set(this.metricsNow());
 
@@ -185,7 +201,9 @@ export class Pagination {
 
     private schedulePremeasure(delay: number) {
         if (this.premeasureTimer) clearTimeout(this.premeasureTimer);
-        this.premeasureTimer = setTimeout(() => { this.premeasureAll(); }, delay);
+        this.premeasureTimer = setTimeout(() => {
+            this.premeasureAll();
+        }, delay);
     }
 
     private saveCountsCache(key: string) {
@@ -233,8 +251,7 @@ export class Pagination {
         try {
             await whenChapterHtmlsLoaded();
             const center = this.view.currentChapter();
-            const order = [...Array(b.spineCount).keys()]
-                .sort((x, y) => Math.abs(x - center) - Math.abs(y - center));
+            const order = [...Array(b.spineCount).keys()].sort((x, y) => Math.abs(x - center) - Math.abs(y - center));
             for (const ci of order) {
                 // Yield between chapters so input and rendering stay responsive.
                 await new Promise((r) => setTimeout(r, 0));
@@ -278,8 +295,7 @@ export class Pagination {
                 const col = Math.max(0, Math.min(pCount - 1, Math.floor(relLeft / width)));
 
                 let targetPage = 0;
-                for (let ci = 0; ci < currentChapter; ci++)
-                    targetPage += counts[ci] || 1;
+                for (let ci = 0; ci < currentChapter; ci++) targetPage += counts[ci] || 1;
                 targetPage += col;
 
                 anchorEl.scrollIntoView({ block: "start" });

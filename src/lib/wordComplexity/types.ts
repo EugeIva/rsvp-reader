@@ -24,12 +24,12 @@ export interface LanguageScorer {
 }
 
 export const SCORE_WEIGHTS = {
-    frequency: 0.30,
+    frequency: 0.3,
     syllable: 0.15,
     length: 0.15,
-    clusters: 0.10,
+    clusters: 0.1,
     entropy: 0.05,
-    properNoun: 0.10,
-    familiar: 0.10,
+    properNoun: 0.1,
+    familiar: 0.1,
     bigramRarity: 0.05,
 };

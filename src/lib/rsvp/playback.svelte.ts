@@ -1,9 +1,19 @@
 import { get } from "svelte/store";
 import {
-    currentPage, chapterPageCounts, readerTotalPages, chapterHtmls, chapterHtmlsLoaded,
-    rsvpActive, rsvpWordOffset, rsvpConfig,
-    rsvpColumnTexts, rsvpColumnChapter, readerMetrics, pageStart,
-    updatePageCounts, whenChapterHtmlsLoaded,
+    currentPage,
+    chapterPageCounts,
+    readerTotalPages,
+    chapterHtmls,
+    chapterHtmlsLoaded,
+    rsvpActive,
+    rsvpWordOffset,
+    rsvpConfig,
+    rsvpColumnTexts,
+    rsvpColumnChapter,
+    readerMetrics,
+    pageStart,
+    updatePageCounts,
+    whenChapterHtmlsLoaded,
 } from "$lib/stores";
 import { tokenize, RsvpEngine } from "$lib/utils/rsvp";
 import type { RsvpConfig, RsvpToken } from "$lib/utils/rsvp";
@@ -35,7 +45,7 @@ export class RsvpPlayback {
             () => {
                 if (this.engine) this.engine.pause();
                 this.playing = false;
-            }
+            },
         );
     }
 
@@ -64,7 +74,9 @@ export class RsvpPlayback {
             const { texts, pageCount } = await columnizeOffscreen(raw, get(readerMetrics));
             rsvpColumnTexts.set(texts);
             rsvpColumnChapter.set(chapter);
-            updatePageCounts((cs) => (cs[chapter] === pageCount ? cs : cs.map((c, i) => (i === chapter ? pageCount : c))));
+            updatePageCounts((cs) =>
+                cs[chapter] === pageCount ? cs : cs.map((c, i) => (i === chapter ? pageCount : c)),
+            );
             return texts[column] ?? "";
         } finally {
             this.loadingColumn = false;
@@ -119,7 +131,7 @@ export class RsvpPlayback {
                 this.currentIdx = idx;
                 rsvpWordOffset.set(idx);
             },
-            () => this.advanceToNextPage()
+            () => this.advanceToNextPage(),
         );
         if (start < allTokens.length) {
             eng.seek(start);

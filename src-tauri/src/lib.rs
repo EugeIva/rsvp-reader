@@ -44,9 +44,10 @@ pub fn run() {
         })
         .setup(|app| {
             let (w, h) = state::read_window_size(app.handle()).unwrap_or((800.0, 600.0));
-            let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                .title("rsvp-reader")
-                .inner_size(w, h);
+            let builder =
+                WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+                    .title("rsvp-reader")
+                    .inner_size(w, h);
             builder.build()?;
             Ok(())
         })

@@ -50,8 +50,14 @@ describe("loadState", () => {
 describe("parseSavedState", () => {
     it("clamps out-of-range values to what the UI allows", () => {
         const s = parseSavedState({
-            fontSize: 40, wpm: 5, punctuationDelayMs: 9000, complexityWeight: -1,
-            longWordMultiplier: 7, timerMinutes: 500, timerSeconds: 75, page: -3,
+            fontSize: 40,
+            wpm: 5,
+            punctuationDelayMs: 9000,
+            complexityWeight: -1,
+            longWordMultiplier: 7,
+            timerMinutes: 500,
+            timerSeconds: 75,
+            page: -3,
         });
         expect(s.fontSize).toBe(3);
         expect(s.wpm).toBe(100);
@@ -72,7 +78,13 @@ describe("parseSavedState", () => {
     });
 
     it("keeps valid values and reads the oldest snake_case keys", () => {
-        const s = parseSavedState({ wpm: 450, font_size: 1.5, rsvp_word_offset: 7, punctuation_pause: false, window_width: 800 });
+        const s = parseSavedState({
+            wpm: 450,
+            font_size: 1.5,
+            rsvp_word_offset: 7,
+            punctuation_pause: false,
+            window_width: 800,
+        });
         expect(s.wpm).toBe(450);
         expect(s.windowWidth).toBe(800);
         expect(s.fontSize).toBe(1.5);
