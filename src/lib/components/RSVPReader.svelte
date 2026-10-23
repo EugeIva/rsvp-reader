@@ -215,15 +215,6 @@
         timerRemaining = 0;
     }
 
-    function timerDisplay(): string {
-        const total = $rsvpConfig.timerMinutes * 60 + $rsvpConfig.timerSeconds;
-        if (total <= 0) return "";
-        const t = timerRemaining > 0 ? timerRemaining : total;
-        const m = Math.floor(t / 60);
-        const s = t % 60;
-        return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-    }
-
     function timerMinDisplay(): number {
         const total = $rsvpConfig.timerMinutes * 60 + $rsvpConfig.timerSeconds;
         if (total <= 0) return 0;
@@ -282,14 +273,6 @@
             }
         });
     });
-
-    function wordHtml(tok: RsvpToken): string {
-        if (!tok.isWord) return tok.text;
-        const before = tok.text.slice(0, tok.orpIndex);
-        const orp = tok.text[tok.orpIndex];
-        const after = tok.text.slice(tok.orpIndex + 1);
-        return `<span class="pre">${before}</span><span class="orp">${orp}</span><span class="post">${after}</span>`;
-    }
 </script>
 
 <svelte:window onkeydown={onKeyDown} />

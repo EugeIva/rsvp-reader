@@ -1,6 +1,6 @@
 import type { Language, LanguageScorer, WordScore } from "./types";
 import { detectLanguage } from "./language";
-import { register, getScorer, isReady } from "./registry";
+import { register, getScorer } from "./registry";
 import { makeEnScorer } from "./en/scorer";
 import { loadFrequency as loadEnFreq } from "./en/loader";
 import { precomputeBigramStats as enBigrams } from "./en/bigrams";
@@ -21,7 +21,6 @@ async function buildScorer(lang: Language): Promise<LanguageScorer> {
             label: "EN",
             language: "en",
             ready: () => true,
-            init: async () => {},
             score: scorer.score,
         };
     }
@@ -32,7 +31,6 @@ async function buildScorer(lang: Language): Promise<LanguageScorer> {
         label: "RU",
         language: "ru",
         ready: () => true,
-        init: async () => {},
         score: scorer.score,
     };
 }
@@ -69,19 +67,4 @@ export function scoreWord(word: string, lang?: Language): WordScore {
         };
     }
     return scorer.score(word);
-}
-
-export function detectAndScore(text: string): number {
-    const lang = detectLanguage(text);
-    const words = text.split(/\s+/).filter((w) => w.length > 0);
-    if (words.length === 0) return 0;
-    let total = 0;
-    for (const w of words) {
-        total += scoreWord(w, lang).score;
-    }
-    return total / words.length;
-}
-
-export function isComplexityReady(): boolean {
-    return isReady("en") || isReady("ru");
 }

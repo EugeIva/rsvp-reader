@@ -306,7 +306,6 @@ export class RsvpEngine {
     }
 
     seek(index: number): void {
-        const wasPlaying = this.playing;
         this.pause();
         this.idx = Math.max(0, Math.min(index, this.tokens.length - 1));
         this.finished = false;

@@ -63,14 +63,3 @@ export async function loadState(bookPath: string): Promise<SavedState | null> {
         return null;
     }
 }
-
-export async function getWindowSize(): Promise<{ w: number; h: number } | null> {
-    try {
-        const raw = (await invoke("get_window_size")) as Record<string, unknown> | null;
-        if (!raw) return null;
-        const w = raw.w as number;
-        const h = raw.h as number;
-        if (w > 0 && h > 0) return { w, h };
-        return null;
-    } catch { return null; }
-}

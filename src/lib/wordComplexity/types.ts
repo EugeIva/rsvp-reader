@@ -18,16 +18,9 @@ export interface WordScore {
 export interface LanguageScorer {
     name: string;
     label: string;
-    init: () => Promise<void>;
     ready: () => boolean;
     score: (word: string) => WordScore;
     language: Language;
-}
-
-export interface FrequencyMap {
-    word: string;
-    count: number;
-    rank: number;
 }
 
 export const SCORE_WEIGHTS = {

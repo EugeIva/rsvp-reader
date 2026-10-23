@@ -6,13 +6,12 @@
 
 <script lang="ts">
     import { open } from "@tauri-apps/plugin-dialog";
-    import { openEpub, getChapterText, getChapterHtml, resolveChapterLink } from "$lib/commands";
+    import { openEpub, getChapterHtml, resolveChapterLink } from "$lib/commands";
     import {
         book, currentPage, chapterHtmls, chapterPageCounts, readerTotalPages,
-        allWords, globalPageBoundaries, fontSize, rsvpActive, rsvpWordOffset, rsvpConfig,
+        fontSize, rsvpActive, rsvpWordOffset, rsvpConfig,
         rsvpColumnTexts, rsvpColumnChapter, readerMetrics,
     } from "$lib/stores";
-    import { computeGlobalBoundaries } from "$lib/utils/pagination";
     import { loadState, saveState } from "$lib/utils/persistence";
     import { dbg } from "$lib/utils/debug";
     import {
@@ -93,7 +92,6 @@
         scheduleRelayout();
     });
 
-    let lastBookPath = $state<string | null>(null);
     let bootLogged = false;
 
     $effect(() => {
@@ -114,20 +112,11 @@
         const b = $book;
         if (!b) return;
         try {
-            const px = $fontSize * 16;
-            const chapterWords: string[][] = [];
             const htmls: string[] = [];
-
             for (let ci = 0; ci < b.spineCount; ci++) {
-                const [text, html] = await Promise.all([
-                    getChapterText(ci),
-                    getChapterHtml(ci),
-                ]);
-                chapterWords[ci] = text.split(/\s+/).filter((w: string) => w.length > 0);
-                htmls[ci] = html;
+                htmls[ci] = await getChapterHtml(ci);
             }
 
-            allWords.set(chapterWords.flat());
             chapterHtmls.set(htmls);
             processedChapter = -1;
             processedHtml = "";
@@ -135,9 +124,6 @@
             premeasureStarted = false;
             premeasureDone = false;
             chapterPageCounts.set(b.chapterWordCounts.map(() => 1));
-
-            const boundaries = computeGlobalBoundaries(chapterWords, containerWidth, effectiveHeight, px, lineHeight, 'Georgia, "Times New Roman", serif');
-            globalPageBoundaries.set(boundaries);
         } catch (e) {
             dbg("rebuild: error", String(e));
         }

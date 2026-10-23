@@ -234,18 +234,6 @@ export function extractColumnTexts(el: HTMLElement, pageW: number, pageCount: nu
     return extractColumnWords(el, pageW, pageCount).map((a) => a.join(" "));
 }
 
-/** Count words assigned to the given column (matches the RSVP text exactly). */
-export function countColumnWords(
-    el: HTMLElement,
-    pageW: number,
-    colIndex: number,
-    pageCount: number
-): number {
-    if (pageW <= 0 || pageCount <= 0) return 0;
-    const cols = extractColumnWords(el, pageW, pageCount);
-    return cols[colIndex]?.length ?? 0;
-}
-
 /**
  * Columnize a chapter offscreen (same metrics/font as the reader) and return
  * the per-column text snippets plus page count. Used by RSVP to advance into

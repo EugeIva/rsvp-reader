@@ -70,13 +70,6 @@ pub fn save_state(
     let path = state_path(&app, &book_path)?;
     write_state_json(&path, &data)?;
     println!("save_state: wrote {} bytes to {:?}", fs::metadata(&path).map(|m| m.len()).unwrap_or(0), path);
-
-    let last_path = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?
-        .join("last_book.txt");
-    fs::write(&last_path, &book_path).ok();
     Ok(())
 }
 
@@ -91,41 +84,6 @@ pub fn load_state(
     };
     println!("load_state: checking {:?}", path);
     read_state_json(&path)
-}
-
-#[tauri::command]
-pub fn get_last_book_path(app: tauri::AppHandle) -> Result<Option<String>, String> {
-    let path = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?
-        .join("last_book.txt");
-    println!("get_last_book_path: checking {:?}", path);
-    match fs::read_to_string(&path) {
-        Ok(s) => {
-            let trimmed = s.trim().to_string();
-            let found = if trimmed.is_empty() { None } else { Some(trimmed) };
-            println!("get_last_book_path: {}", if found.is_some() { "found" } else { "empty" });
-            Ok(found)
-        }
-        Err(_) => {
-            println!("get_last_book_path: not found");
-            Ok(None)
-        }
-    }
-}
-
-#[tauri::command]
-pub fn get_window_size(app: tauri::AppHandle) -> Result<Option<serde_json::Value>, String> {
-    let path = window_size_path(&app)?;
-    println!("get_window_size: checking {:?}", path);
-    let result = read_state_json(&path)?;
-    if let Some(ref v) = result {
-        println!("get_window_size: found {:?}", v);
-    } else {
-        println!("get_window_size: file not found or empty");
-    }
-    Ok(result)
 }
 
 #[tauri::command]

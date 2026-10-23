@@ -9,11 +9,3 @@ export function register(scorer: LanguageScorer): void {
 export function getScorer(lang: string): LanguageScorer | undefined {
     return scorers.get(lang);
 }
-
-export function getAllScorers(): LanguageScorer[] {
-    return Array.from(scorers.values());
-}
-
-export function isReady(lang: string): boolean {
-    return scorers.get(lang)?.ready() ?? false;
-}

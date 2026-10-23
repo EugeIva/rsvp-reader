@@ -9,10 +9,6 @@ export async function getChapterHtml(index: number): Promise<string> {
     return invoke<string>("get_chapter_html", { index });
 }
 
-export async function getChapterText(index: number): Promise<string> {
-    return invoke<string>("get_chapter_text", { index });
-}
-
 export async function getChapterResource(path: string): Promise<string> {
     return invoke<string>("get_chapter_resource", { path });
 }

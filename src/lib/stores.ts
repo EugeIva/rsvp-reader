@@ -1,5 +1,4 @@
 import { writable, derived } from "svelte/store";
-import { computeTotalPages } from "$lib/utils/pagination";
 import type { RsvpConfig } from "$lib/utils/rsvp";
 import { DEFAULT_RSVP_CONFIG } from "$lib/utils/rsvp";
 
@@ -19,15 +18,9 @@ export interface ReaderMetrics {
 
 export const book = writable<BookState | null>(null);
 export const currentPage = writable(0);
-export const globalPageBoundaries = writable<number[]>([]);
-export const allWords = writable<string[]>([]);
 export const chapterHtmls = writable<string[]>([]);
 export const chapterPageCounts = writable<number[]>([]);
 export const fontSize = writable(1.2);
-export const isLoading = writable(false);
-export const error = writable<string | null>(null);
-
-export const totalPages = derived(globalPageBoundaries, ($b) => $b.length);
 
 export const readerTotalPages = derived(chapterPageCounts, ($counts) =>
     $counts.length ? $counts.reduce((a, b) => a + b, 0) : 0

@@ -20,7 +20,7 @@ EPUB reader (Tauri 2 + SvelteKit 5 SPA) with two reading modes: **page mode** (r
 
 ```
 src-tauri/                 Rust backend (commands exposed via IPC `invoke`)
-├── src/epub.rs            EPUB: open_epub, get_chapter_html/text/resource (base64), resolve_chapter_link
+├── src/epub.rs            EPUB: open_epub, get_chapter_html, get_chapter_resource (base64), resolve_chapter_link
 ├── src/state.rs           Persistence: save/load state, window size, debug.log
 ├── src/lib.rs             Tauri builder, command registration, window creation
 └── Cargo.toml             tauri 2 + rbook 0.7 + base64; [features] custom-protocol
@@ -30,7 +30,7 @@ src/                        SvelteKit SPA (adapter-static, no SSR)
 ├── app.html                Shell; global error trap buffers to window.__rsvpErrors
 └── lib/
     ├── stores.ts           All shared state (writable stores + derived)
-    ├── commands.ts         IPC bindings (openEpub, getChapterHtml/Text/Resource, resolveChapterLink)
+    ├── commands.ts         IPC bindings (openEpub, getChapterHtml/Resource, resolveChapterLink)
     ├── types.ts            BookMetadata
     ├── components/
     │   ├── Library.svelte     Welcome + Open dialog + auto-resume last book
@@ -41,7 +41,6 @@ src/                        SvelteKit SPA (adapter-static, no SSR)
         ├── columns.ts         ★ CSS multi-column pagination (epub.js/Foliate technique)
         ├── rsvp.ts            Tokenizer, ORP, delay calc, RsvpEngine (unit-tested)
         ├── rsvp.test.ts       36 tests
-        ├── pagination.ts      Old word-based boundaries (RSVP fallback; mostly unused now)
         ├── persistence.ts     save/load reading state via IPC
         └── debug.ts           dbg() → console + debug.log (via log_debug IPC)
 ```
@@ -49,7 +48,7 @@ src/                        SvelteKit SPA (adapter-static, no SSR)
 ## Data flow
 
 1. `Library.autoOpen()` / `handleOpen()` → `openEpub()` → sets `book` store.
-2. `Reader` mounts → module-scope `lastLoadedBookPath` guard → `rebuildBook()` fetches per-chapter `getChapterText` (words → `allWords`) and `getChapterHtml` (→ `chapterHtmls`).
+2. `Reader` mounts → module-scope `lastLoadedBookPath` guard → `rebuildBook()` fetches each chapter with `getChapterHtml` (→ `chapterHtmls`).
 3. Page mode renders current chapter's sanitized HTML in `.epub-flow`; `paginateFlow()` applies CSS columns (`column-width: pageW`) and measures real page count via a content `Range` (NOT `scrollWidth` — that returns the element's own huge width).
 4. Navigation = scroll the `.epub-viewport` by `colIndex * pageW`.
 5. RSVP entry: `enterRsvp()` pushes the current chapter's per-column word snippets (`extractColumnTexts`) into `rsvpColumnTexts`; RSVP tokenizes those. Cross-chapter during RSVP uses `columnizeOffscreen()`.
@@ -59,7 +58,6 @@ src/                        SvelteKit SPA (adapter-static, no SSR)
 - `book` — BookState (title, spineCount, chapterWordCounts, filePath)
 - `currentPage` — global column-based page index (NOT word-based)
 - `chapterPageCounts` / derived `readerTotalPages` — per-chapter column counts (page mode)
-- `allWords`, `globalPageBoundaries`, `totalPages` — legacy word model (kept for RSVP/back-compat)
 - `rsvpColumnTexts`, `rsvpColumnChapter`, `readerMetrics` — RSVP column sourcing
 - `rsvpActive`, `rsvpWordOffset`, `rsvpConfig`, `fontSize`
 

@@ -76,13 +76,6 @@ pub fn get_chapter_html(index: usize, state: tauri::State<'_, AppState>) -> Resu
 }
 
 #[tauri::command]
-pub fn get_chapter_text(index: usize, state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let html = get_chapter_html(index, state)?;
-    let text = strip_html_tags(&html);
-    Ok(text)
-}
-
-#[tauri::command]
 pub fn get_chapter_resource(path: &str, state: tauri::State<'_, AppState>) -> Result<String, String> {
     use base64::Engine;
 

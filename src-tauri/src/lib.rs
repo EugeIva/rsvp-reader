@@ -24,13 +24,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             epub::open_epub,
             epub::get_chapter_html,
-            epub::get_chapter_text,
             epub::get_chapter_resource,
             epub::resolve_chapter_link,
             state::save_state,
             state::load_state,
-            state::get_last_book_path,
-            state::get_window_size,
             state::save_window_size,
             state::log_debug,
         ])

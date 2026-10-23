@@ -1,7 +1,7 @@
 <script lang="ts">
     import { open } from "@tauri-apps/plugin-dialog";
     import { openEpub } from "$lib/commands";
-    import { book, isLoading, error, currentPage, rsvpWordOffset, fontSize, rsvpConfig } from "$lib/stores";
+    import { book, currentPage, rsvpWordOffset, fontSize, rsvpConfig } from "$lib/stores";
     import { loadState, saveState } from "$lib/utils/persistence";
 
     let spinner = $state(false);
@@ -28,7 +28,6 @@
                 filePath: lastPath,
                 chapterWordCounts: meta.chapter_word_counts,
             });
-            error.set(null);
             currentPage.set(0);
             rsvpWordOffset.set(0);
             // non-blocking state restore
@@ -37,7 +36,6 @@
             // file missing or corrupted — stay on welcome screen
         } finally {
             spinner = false;
-            isLoading.set(false);
         }
     }
 
@@ -100,17 +98,14 @@
                 filePath: selected,
                 chapterWordCounts: meta.chapter_word_counts,
             });
-            error.set(null);
             currentPage.set(0);
             rsvpWordOffset.set(0);
             try { localStorage.setItem("rsvp-reader:lastPath", selected); } catch {}
             restoreState(selected);
         } catch (e) {
             errMsg = String(e);
-            error.set(errMsg);
         } finally {
             spinner = false;
-            isLoading.set(false);
         }
     }
 </script>

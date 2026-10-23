@@ -141,7 +141,7 @@ The confirmed bugs are traced through the code; none were reproduced at runtime.
    - Trim `ru_full.txt` to a sensible top-N, or precompute it into a compact format.
    - Load only the book's language, off the startup path (or in a worker), with an init promise.
    - Build each scorer once.
-4. **Delete the legacy word model and other dead code** (section 2, word model 2; section 3, dead code). This removes `pagination.ts`, `allWords`, `globalPageBoundaries`, `totalPages`, `get_chapter_text`, the unused Rust commands and the unused functions, and halves the IPC done on book load.
+4. ✅ **Done.** **Delete the legacy word model and other dead code** (section 2, word model 2; section 3, dead code). This removes `pagination.ts`, `allWords`, `globalPageBoundaries`, `totalPages`, `get_chapter_text`, the unused Rust commands and the unused functions, and halves the IPC done on book load.
 5. **Keep accurate page numbers without blocking.** The owner blocks on loading every chapter on purpose, to get an accurate page total. The current blocking doesn't actually buy that accuracy:
    - The Rust word count in `open_epub` (`epub.rs:42-52`) never reaches the page total. The frontend only uses the length of `chapter_word_counts` (`Reader.svelte:130`).
    - The accurate total comes from `premeasureAll` (`Reader.svelte:242`), which lays out every chapter offscreen. It already runs in the background, and the UI already shows `Page X of …` until it finishes (`Reader.svelte:521-523`).
