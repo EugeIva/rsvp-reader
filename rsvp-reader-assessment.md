@@ -160,7 +160,7 @@ The confirmed bugs are traced through the code; none were reproduced at runtime.
    - Debounce the window-size save.
    - Write files atomically.
    - Key state by a hash of the book's identifier or content rather than its path.
-7. **Split the god components.** For example: a `bookLoader` module, a `pagination` controller (measure, relayout, premeasure), a `useRsvpPlayback` that owns the engine and page advance, and a `CountdownTimer`.
+7. ✅ **Done.** **Split the god components.** For example: a `bookLoader` module, a `pagination` controller (measure, relayout, premeasure), a `useRsvpPlayback` that owns the engine and page advance, and a `CountdownTimer`.
 8. **Fix the Rust text helpers** (items 5, 6):
    - End entity mode on a non-entity character and decode hex entities.
    - Skip `<head>`, `<style>` and `<script>` text.
@@ -173,7 +173,7 @@ The confirmed bugs are traced through the code; none were reproduced at runtime.
    - Delete or convert the `scripts/test-*.ts` files into Vitest.
    - Replace the template README and metadata.
    - Gate debug logging behind a flag and cap the size of `debug.log`.
-10. **Fix the parse error Vite reports for `Reader.svelte` on every dev start.**
+10. ✅ **Done in item 7** (the module script moved into bookLoader.ts). **Fix the parse error Vite reports for `Reader.svelte` on every dev start.**
     - `npm run tauri dev` logs `[PARSE_ERROR] Expected a semicolon … Reader.svelte?id=0:4:27` during Vite's dependency scan.
     - Cause: the module-level script (`Reader.svelte:1-5`) is `<script context="module">` without `lang="ts"`, but it contains a TypeScript annotation (`let lastLoadedBookPath: string | null = null;`). The scanner parses that block as plain JavaScript.
     - The app still runs, because the Svelte compiler treats the whole component as TypeScript. `npm run check` also warns that `context="module"` is deprecated.
