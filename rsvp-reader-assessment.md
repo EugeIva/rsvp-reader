@@ -2,6 +2,37 @@
 
 Project: `/Users/eugene/deepseek-test/rsvp-reader`. I only read files: nothing was changed, built, installed or run, so the tests were not executed. Line references are relative to the project root.
 
+## Status (2026-10-23): to-do lists done
+
+Every item in sections 6 and 8 below has been implemented and committed, and most bugs listed in section 5 are fixed or no longer apply (the ones still open are listed at the end of this section). Sections 1–5 and 7 are kept as written: they describe the code **as it was when it was assessed** (commit `1dc7805`), and their line references point into that version. For the current architecture, see `AGENTS.md`.
+
+What changed, in commit order:
+
+| Commit | Change |
+|---|---|
+| `719edfc` | RSVP timing at page ends and on settings changes (item 1) |
+| `5705099` | DOMPurify sanitizer and a CSP (item 2) |
+| `39c400c` | Page flash when returning from RSVP |
+| `64a92fe` | Word complexity scoring fixed, word lists loaded lazily (item 3) |
+| `3ee86fd` | Unused word model and dead code removed (item 4) |
+| `c4899fd` | RSVP starts on the page's actual first word |
+| `8c02f0b` | Non-blocking book loading, accurate page counts, chapter + word position (item 5) |
+| `90e1448` | State keyed by book content, atomic writes, validation (item 6) |
+| `a03551e` | Reader and RSVPReader split into modules (items 7 and 10) |
+| `b83f4d2` | Links and image paths resolved against their chapter (item 8) |
+| `156a5e2` | Chapters parsed as XHTML; SVG covers shown |
+| `026b8d0`, `0696235` | Lint/format tooling, CI script, docs, debug logging (item 9) |
+| `b66e6ed` … `cd4e181` | The features in section 8, plus opening books from Finder |
+
+Verdict now: the original C+ (section 7) no longer applies. The app has a clear module structure, 114 frontend and 14 Rust tests and a passing CI script.
+
+Still open from section 5:
+- Item 9 (first half): during RSVP playback every word restarts the 300 ms save debounce, so the position is saved only at pauses longer than that (mostly punctuation). The resize write storm is fixed.
+- Item 13: tokens that are neither words nor punctuation (e.g. `&`, `#`) get a 0 ms delay; the tokenizer's leading-punctuation pass splices in a loop (quadratic); the countdown uses `setInterval` and can drift.
+- Positions kept across a reflow treat RSVP's token offset as a word offset, so they can land a word or two off in text with standalone punctuation.
+
+Optional: signing and notarizing the app to share it, and pushing the repository to a remote so the GitHub Actions workflow runs.
+
 ## 1. What it is
 
 It's a desktop EPUB reader with two modes. **Page mode** shows the book's HTML split into pages using CSS columns. **RSVP mode** shows one word at a time with an ORP (optimal recognition point) highlight. Word timing changes with word length, punctuation and a "word complexity" score for English or Russian.
