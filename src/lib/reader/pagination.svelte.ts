@@ -20,7 +20,7 @@ import {
     updatePageCounts,
     whenChapterHtmlsLoaded,
 } from "$lib/stores";
-import type { ReaderMetrics } from "$lib/stores";
+import type { ReaderMetrics, WordAnchor } from "$lib/stores";
 import { dbg } from "$lib/utils/debug";
 import { paginateFlow, extractColumnWords, measureOffscreenPages, layoutKey } from "$lib/utils/columns";
 import { tokenIndexOfWord, wordIndexOfToken } from "$lib/utils/rsvp";
@@ -285,6 +285,23 @@ export class Pagination {
         } catch (e) {
             dbg("premeasure: error", String(e));
         }
+    }
+
+    /**
+     * Go to a remembered position. In the chapter already laid out the page
+     * is known now; otherwise move to that chapter and let afterMeasure()
+     * place the page once it's laid out (as when restoring a saved position).
+     */
+    goToAnchor(anchor: WordAnchor) {
+        const counts = get(chapterPageCounts);
+        if (anchor.chapter === this.measuredChapter && anchor.chapter === this.view.renderedChapter()) {
+            const col = columnOfWord(this.columnWordsCache, anchor.word);
+            currentPage.set(chapterStartPage(counts, anchor.chapter) + col);
+            rsvpWordOffset.set(Math.max(0, anchor.word - wordsBefore(this.columnWordsCache, col)));
+            return;
+        }
+        pendingWordAnchor.set(anchor);
+        currentPage.set(chapterStartPage(counts, anchor.chapter));
     }
 
     /** Scroll the viewport to the current page and publish its start. */

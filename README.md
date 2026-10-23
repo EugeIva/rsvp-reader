@@ -41,6 +41,7 @@ they show a blank window; `launch.sh` takes care of this (see `AGENTS.md`).
 | `Space` | next page | play / pause |
 | `←` `→` | previous / next page | — |
 | `9` `0` | larger / smaller font | — |
+| `Backspace` | back to where a footnote link was followed | — |
 
 ## Checks
 

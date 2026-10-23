@@ -18,6 +18,11 @@ export function isModeSwitchKey(e: KeyboardEvent): boolean {
     return e.code === "KeyA" && !e.metaKey && !e.ctrlKey && !e.altKey && !inTextField(e);
 }
 
+/** Backspace, outside text fields: go back after following a link. */
+export function isBackKey(e: KeyboardEvent): boolean {
+    return e.code === "Backspace" && !e.metaKey && !e.ctrlKey && !e.altKey && !inTextField(e);
+}
+
 /** Space, outside text fields. */
 export function isSpaceKey(e: KeyboardEvent): boolean {
     return e.code === "Space" && !inTextField(e);

@@ -259,7 +259,7 @@ This is a **working prototype with a sensible core idea and uneven execution**.
   - `src-tauri/icons/` has a full set (512×512 `icon.png`, `.icns`, `.ico`), most likely the Tauri template icons.
   - Design a 1024×1024 PNG source, then run `npm run tauri icon path/to/icon.png` to generate every size, including `icon.icns`. `bundle.icon` already points at these files.
   - Also replace `static/favicon.png` (the `<title>` in `app.html` was set to "RSVP Reader" in item 9).
-- [ ] **Add a way back to the reading page after following a footnote.**
+- [x] **Add a way back to the reading page after following a footnote.**
   - Today a footnote link moves the reader to the note (same chapter: `Reader.clickWord`, `href="#id"`; another chapter: `resolveChapterLink` + `pager.pendingAnchor`), and the only way back is the note's own backlink, if the book has one, or paging back by hand.
   - Before following an internal link, remember the reading position as a word anchor (`pageStart` + `rsvpWordOffset`, the same thing `+page.svelte` saves). Keep a stack, so a note that links to another note still leads back step by step.
   - While the stack isn't empty, show a "← Back to page N" button in the reader's toolbar or bottom bar. Clicking it pops the stack and restores the position the same way a saved position is restored: set `pendingWordAnchor`, move `currentPage` to the start of that chapter, and let `Pagination.afterMeasure` pick the exact page.

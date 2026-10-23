@@ -7,6 +7,7 @@ import {
     rsvpActive,
     pageStart,
     wordHighlight,
+    backStack,
     pendingWordAnchor,
     legacyPage,
     pageCountCache,
@@ -48,6 +49,7 @@ export async function openBook(path: string): Promise<void> {
     rsvpWordOffset.set(0);
     pageStart.set(null);
     wordHighlight.set(false);
+    backStack.set([]);
     pendingWordAnchor.set(saved?.anchor ?? null);
     legacyPage.set(saved && !saved.anchor && saved.page > 0 ? saved.page : null);
     pageCountCache.set(saved?.pageCounts ?? null);

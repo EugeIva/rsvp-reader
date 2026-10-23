@@ -57,6 +57,26 @@ export const pageCountCache = writable<PageCountCache | null>(null);
 // is clicked or RSVP is left, off after a page turn or a jump.
 export const wordHighlight = writable(false);
 
+/** A place to return to after following a link: position, and the page number shown then. */
+export interface BackEntry {
+    anchor: WordAnchor;
+    page: number;
+}
+// Positions left by following internal links (footnotes), most recent last.
+export const backStack = writable<BackEntry[]>([]);
+
+export function pushBack(entry: BackEntry): void {
+    backStack.update((stack) => [...stack, entry]);
+}
+
+/** Remove and return the most recent entry, or null if there is none. */
+export function popBack(): BackEntry | null {
+    const stack = get(backStack);
+    if (!stack.length) return null;
+    backStack.set(stack.slice(0, -1));
+    return stack[stack.length - 1];
+}
+
 export const rsvpActive = writable(false);
 export const rsvpWordOffset = writable(0);
 export const rsvpConfig = writable<RsvpConfig>({ ...DEFAULT_RSVP_CONFIG });

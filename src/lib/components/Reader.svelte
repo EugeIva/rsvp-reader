@@ -13,6 +13,10 @@
         rsvpColumnTexts,
         rsvpColumnChapter,
         wordHighlight,
+        pageStart,
+        backStack,
+        pushBack,
+        popBack,
     } from "$lib/stores";
     import { dbg } from "$lib/utils/debug";
     import { processHtmlDoc, wrapImages, unsizedImages } from "$lib/utils/columns";
@@ -21,7 +25,7 @@
     import { Pagination } from "$lib/reader/pagination.svelte";
     import { tick } from "svelte";
     import { openUrl } from "@tauri-apps/plugin-opener";
-    import { isModeSwitchKey, isSpaceKey } from "$lib/utils/keys";
+    import { isModeSwitchKey, isSpaceKey, isBackKey } from "$lib/utils/keys";
 
     let processedHtml = $state("");
     let processedChapter = $state(-1);
@@ -192,6 +196,21 @@
         rsvpActive.set(true);
     }
 
+    /** Remember the reading position before following an internal link. */
+    function rememberPosition() {
+        const start = $pageStart;
+        if (!start) return;
+        pushBack({ anchor: { chapter: start.chapter, word: start.word + $rsvpWordOffset }, page: $currentPage + 1 });
+    }
+
+    /** Return to where the last internal link was followed from. */
+    function goBack() {
+        const entry = popBack();
+        if (!entry) return;
+        wordHighlight.set(false);
+        pager.goToAnchor(entry.anchor);
+    }
+
     /** Follow a link, or make the clicked word the RSVP starting word. */
     function clickWord(e: MouseEvent) {
         const link = (e.target as HTMLElement).closest("a");
@@ -206,6 +225,7 @@
                 const id = href.slice(1);
                 const targetEl = containerEl?.querySelector("#" + CSS.escape(id));
                 if (targetEl) {
+                    rememberPosition();
                     const flowRect = flowEl()?.getBoundingClientRect();
                     if (flowRect && containerWidth > 0) {
                         const targetRect = targetEl.getBoundingClientRect();
@@ -222,6 +242,7 @@
             } else {
                 resolveChapterLink(href, currentChapter)
                     .then((resolved) => {
+                        rememberPosition();
                         let offset = 0;
                         for (let ci = 0; ci < resolved.chapter_index; ci++) offset += $chapterPageCounts[ci] || 1;
                         pager.pendingAnchor = resolved.anchor;
@@ -258,6 +279,10 @@
         }
         // Space turns the page. preventDefault stops it also pressing a
         // focused button (Prev, Open...); holding it doesn't race ahead.
+        if (isBackKey(e)) {
+            e.preventDefault();
+            goBack();
+        }
         if (isSpaceKey(e)) {
             e.preventDefault();
             if (!e.repeat) goNext();
@@ -284,6 +309,11 @@
     <div class="toolbar">
         <span class="title">{$book?.title ?? "rsvp-reader"}</span>
         <div class="spacer"></div>
+        {#if $backStack.length}
+            <button class="back-btn" onclick={goBack} title="Back to where the link was followed (⌫)">
+                ← Back to page {$backStack[$backStack.length - 1].page}
+            </button>
+        {/if}
         <button class="rsvp-btn" onclick={enterRsvp}>RSVP (A)</button>
         <button class="open-btn" onclick={handleOpen}>Open</button>
     </div>
@@ -370,6 +400,20 @@
     .rsvp-btn:hover {
         background: #1a3050;
     }
+    .back-btn {
+        padding: 0.3rem 0.8rem;
+        border: 1px solid #6a9cf5;
+        border-radius: 6px;
+        background: transparent;
+        color: #6a9cf5;
+        cursor: pointer;
+        font-size: 0.85rem;
+    }
+
+    .back-btn:hover {
+        background: #1a2a40;
+    }
+
     .open-btn {
         padding: 0.3rem 0.8rem;
         border: 1px solid #444;

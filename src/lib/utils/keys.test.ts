@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import { inTextField, isModeSwitchKey, isSpaceKey } from "./keys";
+import { inTextField, isModeSwitchKey, isSpaceKey, isBackKey } from "./keys";
 
 /** Dispatch a keydown on `target` and return the event as a handler sees it. */
 function keydown(target: HTMLElement, init: KeyboardEventInit): KeyboardEvent {
@@ -39,6 +39,12 @@ describe("keyboard helpers", () => {
         expect(isModeSwitchKey(keydown(input, { code: "KeyA" }))).toBe(false);
         expect(isSpaceKey(keydown(input, { code: "Space" }))).toBe(false);
         expect(isSpaceKey(keydown(el("<textarea></textarea>"), { code: "Space" }))).toBe(false);
+    });
+
+    it("matches Backspace for going back, except while typing or with modifiers", () => {
+        expect(isBackKey(keydown(document.body, { code: "Backspace" }))).toBe(true);
+        expect(isBackKey(keydown(document.body, { code: "Backspace", metaKey: true }))).toBe(false);
+        expect(isBackKey(keydown(el('<input type="text">'), { code: "Backspace" }))).toBe(false);
     });
 
     it("still handles them on checkboxes, sliders and buttons", () => {

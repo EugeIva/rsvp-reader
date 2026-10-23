@@ -1,6 +1,15 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { get } from "svelte/store";
-import { chapterPageCounts, currentPage, chapterStartPage, locatePage, updatePageCounts } from "./stores";
+import {
+    chapterPageCounts,
+    currentPage,
+    chapterStartPage,
+    locatePage,
+    updatePageCounts,
+    backStack,
+    pushBack,
+    popBack,
+} from "./stores";
 
 describe("page location helpers", () => {
     it("finds a chapter's first page and a page's chapter and column", () => {
@@ -46,5 +55,18 @@ describe("updatePageCounts", () => {
         updatePageCounts((cs) => cs);
         expect(get(chapterPageCounts)).toBe(before);
         expect(get(currentPage)).toBe(2);
+    });
+});
+
+describe("back stack (following footnotes)", () => {
+    beforeEach(() => backStack.set([]));
+
+    it("returns positions in reverse order, so chained notes lead back step by step", () => {
+        pushBack({ anchor: { chapter: 2, word: 120 }, page: 30 });
+        pushBack({ anchor: { chapter: 9, word: 4 }, page: 210 });
+        expect(popBack()).toEqual({ anchor: { chapter: 9, word: 4 }, page: 210 });
+        expect(popBack()).toEqual({ anchor: { chapter: 2, word: 120 }, page: 30 });
+        expect(popBack()).toBeNull();
+        expect(get(backStack)).toEqual([]);
     });
 });
