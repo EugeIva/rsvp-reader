@@ -31,18 +31,26 @@
     });
 
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
+    let windowSizeTimer: ReturnType<typeof setTimeout> | null = null;
     let windowSizeTick = $state(0);
 
+    // Save the window size once a resize settles, not on every resize event.
     $effect(() => {
         const onResize = () => {
-            const w = window.innerWidth;
-            const h = window.innerHeight;
-            console.log("win:resize", w + "x" + h);
-            invoke("save_window_size", { w, h }).catch(() => {});
-            windowSizeTick++;
+            if (windowSizeTimer) clearTimeout(windowSizeTimer);
+            windowSizeTimer = setTimeout(() => {
+                const w = window.innerWidth;
+                const h = window.innerHeight;
+                console.log("win:resize", w + "x" + h);
+                invoke("save_window_size", { w, h }).catch(() => {});
+                windowSizeTick++;
+            }, 500);
         };
         window.addEventListener("resize", onResize);
-        return () => window.removeEventListener("resize", onResize);
+        return () => {
+            window.removeEventListener("resize", onResize);
+            if (windowSizeTimer) clearTimeout(windowSizeTimer);
+        };
     });
 
     $effect(() => {
@@ -63,7 +71,7 @@
             const start = $pageStart;
             if (!$book || !start) return;
             const c = $rsvpConfig;
-            await saveState($book.filePath, {
+            await saveState($book.id, {
                 page: $currentPage,
                 rsvpWordOffset: $rsvpWordOffset,
                 fontSize: $fontSize,

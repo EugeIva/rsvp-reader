@@ -3,6 +3,8 @@ import type { RsvpConfig } from "$lib/utils/rsvp";
 import { DEFAULT_RSVP_CONFIG } from "$lib/utils/rsvp";
 
 export interface BookState {
+    // Content id; saved state is keyed by it rather than by filePath.
+    id: string;
     title: string;
     author: string;
     spineCount: number;

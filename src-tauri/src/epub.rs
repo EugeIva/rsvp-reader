@@ -8,6 +8,8 @@ pub struct AppState {
 
 #[derive(Serialize)]
 pub struct BookMetadata {
+    /// Content id (see `content_id`); saved reading state is keyed by it.
+    pub id: String,
     pub title: String,
     pub author: String,
     pub spine_count: usize,
@@ -19,12 +21,24 @@ pub struct ResolvedLink {
     pub anchor: Option<String>,
 }
 
+/// Stable id for a book's content: FNV-1a (64-bit) of the file's bytes, in
+/// hex. Unlike the path, it survives moving or renaming the file.
+pub fn content_id(bytes: &[u8]) -> String {
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in bytes {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    format!("{h:016x}")
+}
+
 // Commands are async so they run off the main thread; a plain (sync) Tauri
 // command runs on the main thread and blocks the UI while it works.
 
 #[tauri::command]
 pub async fn open_epub(path: String, state: tauri::State<'_, AppState>) -> Result<BookMetadata, String> {
     let epub = Epub::open(&path).map_err(|e| format!("Failed to open EPUB: {e}"))?;
+    let id = content_id(&std::fs::read(&path).map_err(|e| format!("Failed to read EPUB: {e}"))?);
 
     let title = epub
         .metadata()
@@ -40,6 +54,7 @@ pub async fn open_epub(path: String, state: tauri::State<'_, AppState>) -> Resul
         .unwrap_or_default();
 
     let metadata = BookMetadata {
+        id,
         title,
         author,
         spine_count: epub.spine().len(),
@@ -129,4 +144,19 @@ pub async fn resolve_chapter_link(href: String, state: tauri::State<'_, AppState
     }
 
     Err(format!("No chapter found for link '{href}'"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_content_id_is_stable_and_content_based() {
+        assert_eq!(content_id(b"same bytes"), content_id(b"same bytes"));
+        assert_ne!(content_id(b"book one"), content_id(b"book two"));
+        // Known FNV-1a 64 value, so the id can't change between versions.
+        assert_eq!(content_id(b""), "cbf29ce484222325");
+        assert_eq!(content_id(b"a"), "af63dc4c8601ec8c");
+        assert!(content_id(b"x").chars().all(|c| c.is_ascii_hexdigit()));
+    }
 }

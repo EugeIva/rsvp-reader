@@ -154,7 +154,7 @@ The confirmed bugs are traced through the code; none were reproduced at runtime.
    - [ ] **Keep the UI responsive while premeasuring.** Yield between chapters (`await new Promise(r => setTimeout(r))` or `requestIdleCallback`), measure the chapters closest to the reader first, and cancel a stale run when a resize or font change starts a new one.
    - [ ] **Make the reading position independent of the total.** Save position as chapter + word/column offset (item 6). The current page number then comes from the chapter's own page count, so it's exact as soon as that chapter has been laid out, and the global total can fill in later without moving the reader.
    - [ ] **Serve resources through a custom URI scheme.** Use a Tauri custom protocol (e.g. `epub://res/<path>`) instead of base64-over-IPC. Displayed images then load lazily and the browser caches them.
-6. **Persist a content anchor** (chapter index + word or column offset), not a layout-dependent global page.
+6. ✅ **Done** (anchor and openBook in item 5). **Persist a content anchor** (chapter index + word or column offset), not a layout-dependent global page.
    - Extract one `openBook(path)` service used by both `Library` and `Reader`.
    - Validate `SavedState` in one place.
    - Debounce the window-size save.

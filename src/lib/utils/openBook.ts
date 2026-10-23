@@ -26,7 +26,7 @@ export function lastOpenedPath(): string | null {
  */
 export async function openBook(path: string): Promise<void> {
     const meta = await openEpub(path);
-    const saved = await loadState(path);
+    const saved = await loadState(meta.id, path);
 
     clearImageSizeCache();
     rsvpActive.set(false);
@@ -53,6 +53,7 @@ export async function openBook(path: string): Promise<void> {
 
     try { localStorage.setItem(LAST_PATH_KEY, path); } catch { /* best-effort */ }
     book.set({
+        id: meta.id,
         title: meta.title,
         author: meta.author,
         spineCount: meta.spine_count,
