@@ -23,3 +23,8 @@ export interface ResolvedLink {
 export async function resolveChapterLink(href: string, from: number): Promise<ResolvedLink> {
     return invoke<ResolvedLink>("resolve_chapter_link", { href, from });
 }
+
+/** A book macOS asked the app to open from Finder, not yet opened (taken once). */
+export async function takePendingOpen(): Promise<string | null> {
+    return invoke<string | null>("take_pending_open");
+}

@@ -1,6 +1,7 @@
 <script lang="ts">
     import { open } from "@tauri-apps/plugin-dialog";
     import { openBook, lastOpenedPath } from "$lib/utils/openBook";
+    import { takePendingOpen } from "$lib/commands";
 
     let spinner = $state(false);
     let errMsg = $state<string | null>(null);
@@ -13,7 +14,9 @@
     });
 
     async function autoOpen() {
-        const lastPath = lastOpenedPath();
+        // A book opened from Finder at launch comes first, else the last one read.
+        const pending = await takePendingOpen().catch(() => null);
+        const lastPath = pending ?? lastOpenedPath();
         if (!lastPath) return;
         spinner = true;
         try {

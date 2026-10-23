@@ -36,6 +36,16 @@
     "copyright": "Copyright © 2026 eugene",
     "macOS": {
       "minimumSystemVersion": "12.0"
-    }
+    },
+    "fileAssociations": [
+      {
+        "ext": ["epub"],
+        "contentTypes": ["org.idpf.epub-container"],
+        "name": "EPUB book",
+        "description": "EPUB book",
+        "mimeType": "application/epub+zip",
+        "role": "Viewer"
+      }
+    ]
   }
 }

@@ -7,6 +7,8 @@
     import { invoke } from "@tauri-apps/api/core";
     import { getCurrentWindow } from "@tauri-apps/api/window";
     import { getCurrentWebview } from "@tauri-apps/api/webview";
+    import { listen } from "@tauri-apps/api/event";
+    import { takePendingOpen } from "$lib/commands";
     import { tick } from "svelte";
     import { dbg, logError } from "$lib/utils/debug";
     import { syncSettings } from "$lib/utils/settings";
@@ -16,6 +18,26 @@
 
     // Load the global RSVP settings and save them whenever they change.
     $effect(() => syncSettings());
+
+    // A book opened from Finder (double-click, "Open With") while the app
+    // is running. At launch, Library takes it instead of reopening the last book.
+    $effect(() => {
+        let unlisten: (() => void) | null = null;
+        let disposed = false;
+        listen("open-file-pending", async () => {
+            const path = await takePendingOpen();
+            if (path) openBook(path).catch((e) => dbg("finder: open failed", String(e)));
+        })
+            .then((fn) => {
+                if (disposed) fn();
+                else unlisten = fn;
+            })
+            .catch((e) => logError("finder: listen failed", String(e)));
+        return () => {
+            disposed = true;
+            unlisten?.();
+        };
+    });
 
     // Open an EPUB dropped onto the window; other files are ignored. The
     // overlay shows only while an EPUB is being dragged over the window.
