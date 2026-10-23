@@ -23,6 +23,7 @@
     import { openBook } from "$lib/utils/openBook";
     import { needsLoad, loadBook } from "$lib/reader/bookLoader";
     import { Pagination } from "$lib/reader/pagination.svelte";
+    import PageSlider from "./PageSlider.svelte";
     import { tick } from "svelte";
     import { openUrl } from "@tauri-apps/plugin-opener";
     import { isModeSwitchKey, isSpaceKey, isBackKey } from "$lib/utils/keys";
@@ -344,6 +345,8 @@
             </div>
         </div>
     </div>
+
+    <PageSlider />
 
     <div class="bottom-bar">
         <span class="word-count">{pager.pageWordCount} words</span>

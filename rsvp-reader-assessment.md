@@ -297,3 +297,4 @@ This is a **working prototype with a sensible core idea and uneven execution**.
   - Add a keyboard shortcut for it as well, matching the physical key like the `A` key item (for example Backspace, ignored while typing in a field).
   - Clear the stack when another book is opened. Decide whether ordinary page turns should clear it too; keeping it until it's used is simpler and matches browser "back".
   - Web links (`http(s)://`) open in the system browser and don't touch the stack.
+- [x] **Horizontal page slider below the page for quick navigation.** Drag to any page (the target page shows while dragging; the jump happens on release), click the track to jump, or use the arrow keys when it's focused.
