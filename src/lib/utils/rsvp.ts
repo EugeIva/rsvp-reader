@@ -218,16 +218,25 @@ export function tokenize(text: string): RsvpToken[] {
         i++;
     }
 
-    // Post-process: glue leading standalone punctuation to the following word
-    for (let j = 0; j < tokens.length - 1; j++) {
-        if (!tokens[j].isWord && tokens[j].isPunctuation && tokens[j + 1].isWord) {
-            tokens[j + 1].quotePrefix = tokens[j].text + tokens[j + 1].quotePrefix;
-            tokens.splice(j, 1);
-            j--;
+    // Post-process: glue a standalone punctuation token to the word right
+    // after it (as its quotePrefix). Only the one directly before the word
+    // is glued; earlier punctuation in a run stays standalone. One pass:
+    // a punctuation token is held back until we see what follows it.
+    const glued: RsvpToken[] = [];
+    let held: RsvpToken | null = null;
+    for (const tok of tokens) {
+        if (held && tok.isWord) {
+            tok.quotePrefix = held.text + tok.quotePrefix;
+        } else if (held) {
+            glued.push(held);
         }
+        held = null;
+        if (!tok.isWord && tok.isPunctuation) held = tok;
+        else glued.push(tok);
     }
+    if (held) glued.push(held);
 
-    return tokens;
+    return glued;
 }
 
 /** Index of the token covering character `offset` of the tokenized text: the last token starting at or before it. */
@@ -278,7 +287,9 @@ export function getORP(word: string): number {
 export function calculateDelay(token: RsvpToken, config: RsvpConfig): number {
     const baseDelay = 60000 / config.wpm;
     if (!token.isWord) {
-        return token.isPunctuation ? config.punctuationDelayMs : 0;
+        // Punctuation gets the punctuation pause (0 = off); any other
+        // symbol (& # % ...) is shown for as long as a word.
+        return token.isPunctuation ? config.punctuationDelayMs : Math.round(baseDelay);
     }
     let delay = baseDelay;
     if (token.text.length > config.longWordThreshold) {

@@ -77,4 +77,31 @@ describe("Countdown", () => {
         vi.advanceTimersByTime(1000);
         expect(countdown.shown(3)).toBe(2);
     });
+
+    it("does not drift when timer callbacks run late", () => {
+        countdown = new Countdown(
+            () => 60,
+            () => expired++,
+        );
+        countdown.start();
+        // A busy main thread delays timer callbacks; the clock moves on regardless.
+        vi.setSystemTime(Date.now() + 30_000);
+        vi.advanceTimersByTime(250);
+        expect(countdown.remaining).toBe(30);
+        vi.setSystemTime(Date.now() + 30_000);
+        vi.advanceTimersByTime(250);
+        expect(expired).toBe(1);
+    });
+
+    it("keeps the exact time left across a pause", () => {
+        countdown.start();
+        vi.advanceTimersByTime(1750);
+        countdown.pause();
+        vi.advanceTimersByTime(5000);
+        countdown.resume();
+        vi.advanceTimersByTime(1000);
+        expect(expired).toBe(0);
+        vi.advanceTimersByTime(250);
+        expect(expired).toBe(1);
+    });
 });

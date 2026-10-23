@@ -105,7 +105,7 @@ export class RsvpPlayback {
         const startWord = get(rsvpColumnTexts)
             .slice(0, column)
             .reduce((n, t) => n + (t ? t.split(" ").length : 0), 0);
-        pageStart.set({ chapter, word: startWord });
+        pageStart.set({ chapter, word: startWord, words: text.split(" ").filter(Boolean) });
 
         // Load the page's word list before playback starts, so the first
         // words already get complexity timing.

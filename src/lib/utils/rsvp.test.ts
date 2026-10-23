@@ -441,6 +441,18 @@ describe("getORP and calculateDelay — more cases", () => {
         expect(calculateDelay(word("hello"), { ...base, wpm: 600 })).toBe(100);
     });
 
+    it("shows symbols that aren't punctuation for as long as a word, not 0 ms", () => {
+        const amp: RsvpToken = {
+            text: "&",
+            isWord: false,
+            orpIndex: -1,
+            isPunctuation: false,
+            punctSuffix: "",
+            quotePrefix: "",
+        };
+        expect(calculateDelay(amp, { ...base, wpm: 300 })).toBe(200);
+    });
+
     it("adds the punctuation pause, and drops it at 0 ms", () => {
         expect(calculateDelay(word("hello", ","), { ...base, wpm: 300 })).toBe(400);
         expect(calculateDelay(comma, { ...base, punctuationDelayMs: 0 })).toBe(0);

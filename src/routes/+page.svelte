@@ -2,7 +2,16 @@
     import Library from "$lib/components/Library.svelte";
     import Reader from "$lib/components/Reader.svelte";
     import RSVPReader from "$lib/components/RSVPReader.svelte";
-    import { book, rsvpActive, currentPage, rsvpWordOffset, fontSize, pageStart, pageCountCache } from "$lib/stores";
+    import {
+        book,
+        rsvpActive,
+        currentPage,
+        rsvpWordOffset,
+        fontSize,
+        pageStart,
+        pageCountCache,
+        readingAnchor,
+    } from "$lib/stores";
     import { saveState } from "$lib/utils/persistence";
     import { invoke } from "@tauri-apps/api/core";
     import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -127,8 +136,13 @@
         $pageStart;
         $pageCountCache;
         windowSizeTick;
-        if (saveTimer) clearTimeout(saveTimer);
+        // Throttle, not debounce: a change schedules one save a second later,
+        // and later changes ride along instead of pushing it back. (During
+        // RSVP playback the position changes with every word, which kept a
+        // debounce from ever firing.)
+        if (saveTimer) return;
         saveTimer = setTimeout(async () => {
+            saveTimer = null;
             await tick();
             // Nothing to save until the book's first page has been laid out;
             // saving earlier would overwrite the saved position.
@@ -140,10 +154,10 @@
                 fontSize: $fontSize,
                 windowWidth: window.innerWidth,
                 windowHeight: window.innerHeight,
-                anchor: { chapter: start.chapter, word: start.word + $rsvpWordOffset },
+                anchor: readingAnchor(start, $rsvpWordOffset),
                 pageCounts: $pageCountCache ?? undefined,
             });
-        }, 300);
+        }, 1000);
     });
 </script>
 

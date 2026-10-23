@@ -1,6 +1,6 @@
 import { writable, derived, get } from "svelte/store";
 import type { RsvpConfig } from "$lib/utils/rsvp";
-import { DEFAULT_RSVP_CONFIG } from "$lib/utils/rsvp";
+import { DEFAULT_RSVP_CONFIG, wordIndexOfToken } from "$lib/utils/rsvp";
 
 export interface BookState {
     // Content id; saved state is keyed by it rather than by filePath.
@@ -45,7 +45,22 @@ export const readerTotalPages = derived(chapterPageCounts, ($counts) =>
 // First word of the page currently shown (page or RSVP mode); null until a
 // page has been laid out. Saved as the reading position, together with
 // rsvpWordOffset.
-export const pageStart = writable<WordAnchor | null>(null);
+export const pageStart = writable<PageStart | null>(null);
+
+/** First word of the page shown, plus the page's words. */
+export interface PageStart extends WordAnchor {
+    words: string[];
+}
+
+/**
+ * The reading position as a word anchor: the word at RSVP token
+ * `tokenOffset` (rsvpWordOffset) on the page that starts at `start`. RSVP
+ * counts tokens, which don't line up one-to-one with the page's words.
+ */
+export function readingAnchor(start: PageStart, tokenOffset: number): WordAnchor {
+    const word = tokenOffset > 0 && start.words.length ? wordIndexOfToken(start.words, tokenOffset) : 0;
+    return { chapter: start.chapter, word: start.word + word };
+}
 // Position to bring on screen once its chapter has been laid out (restoring a
 // saved position, or keeping the place across a relayout).
 export const pendingWordAnchor = writable<WordAnchor | null>(null);

@@ -9,7 +9,9 @@ import {
     backStack,
     pushBack,
     popBack,
+    readingAnchor,
 } from "./stores";
+import { tokenIndexOfWord } from "./utils/rsvp";
 
 describe("page location helpers", () => {
     it("finds a chapter's first page and a page's chapter and column", () => {
@@ -68,5 +70,27 @@ describe("back stack (following footnotes)", () => {
         expect(popBack()).toEqual({ anchor: { chapter: 2, word: 120 }, page: 30 });
         expect(popBack()).toBeNull();
         expect(get(backStack)).toEqual([]);
+    });
+});
+
+describe("readingAnchor (saved position from page start + RSVP token offset)", () => {
+    // RSVP tokens: he, said, then, left  ("—" is glued to "said").
+    const start = { chapter: 4, word: 100, words: ["he", "said", "—", "then", "left."] };
+
+    it("maps the RSVP token to the right page word, not token-for-word", () => {
+        expect(readingAnchor(start, 0)).toEqual({ chapter: 4, word: 100 });
+        expect(readingAnchor(start, 2)).toEqual({ chapter: 4, word: 103 }); // "then", not "—"
+        expect(readingAnchor(start, 3)).toEqual({ chapter: 4, word: 104 });
+    });
+
+    it("round-trips back to the same RSVP token", () => {
+        for (const token of [0, 1, 2, 3]) {
+            const word = readingAnchor(start, token).word - start.word;
+            expect(tokenIndexOfWord(start.words, word)).toBe(token);
+        }
+    });
+
+    it("falls back to the page start when the page's words aren't known", () => {
+        expect(readingAnchor({ chapter: 1, word: 7, words: [] }, 5)).toEqual({ chapter: 1, word: 7 });
     });
 });

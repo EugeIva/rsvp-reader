@@ -17,6 +17,7 @@
         backStack,
         pushBack,
         popBack,
+        readingAnchor,
     } from "$lib/stores";
     import { dbg } from "$lib/utils/debug";
     import { processHtmlDoc, wrapImages, unsizedImages } from "$lib/utils/columns";
@@ -201,7 +202,7 @@
     function rememberPosition() {
         const start = $pageStart;
         if (!start) return;
-        pushBack({ anchor: { chapter: start.chapter, word: start.word + $rsvpWordOffset }, page: $currentPage + 1 });
+        pushBack({ anchor: readingAnchor(start, $rsvpWordOffset), page: $currentPage + 1 });
     }
 
     /** Return to where the last internal link was followed from. */

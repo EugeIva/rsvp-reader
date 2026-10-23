@@ -152,7 +152,7 @@ export class Pagination {
         if (this.measuredChapter === ci && !get(pendingWordAnchor)) {
             pendingWordAnchor.set({
                 chapter: ci,
-                word: wordsBefore(this.columnWordsCache, this.view.column()) + get(rsvpWordOffset),
+                word: this.wordAtToken(this.view.column(), get(rsvpWordOffset)),
             });
         }
         const prevCount = get(chapterPageCounts)[ci] || 1;
@@ -200,7 +200,7 @@ export class Pagination {
             pendingWordAnchor.set(null);
             const col = columnOfWord(this.columnWordsCache, anchor.word);
             currentPage.set(chapterStartPage(get(chapterPageCounts), ci) + col);
-            rsvpWordOffset.set(Math.max(0, anchor.word - wordsBefore(this.columnWordsCache, col)));
+            rsvpWordOffset.set(this.tokenAtWord(col, anchor.word));
         }
         const total = get(readerTotalPages);
         if (get(currentPage) >= total) currentPage.set(Math.max(0, total - 1));
@@ -297,7 +297,7 @@ export class Pagination {
         if (anchor.chapter === this.measuredChapter && anchor.chapter === this.view.renderedChapter()) {
             const col = columnOfWord(this.columnWordsCache, anchor.word);
             currentPage.set(chapterStartPage(counts, anchor.chapter) + col);
-            rsvpWordOffset.set(Math.max(0, anchor.word - wordsBefore(this.columnWordsCache, col)));
+            rsvpWordOffset.set(this.tokenAtWord(col, anchor.word));
             return;
         }
         pendingWordAnchor.set(anchor);
@@ -346,9 +346,27 @@ export class Pagination {
         }
         this.pageWordCount = this.columnWordsCache[column]?.length ?? 0;
         if (this.measuredChapter === currentChapter) {
-            pageStart.set({ chapter: currentChapter, word: wordsBefore(this.columnWordsCache, column) });
+            pageStart.set({
+                chapter: currentChapter,
+                word: wordsBefore(this.columnWordsCache, column),
+                words: this.columnWordsCache[column] ?? [],
+            });
         }
         this.updateHighlight();
+    }
+
+    /** Chapter word index of RSVP token `token` on column `col`. */
+    private wordAtToken(col: number, token: number): number {
+        const words = this.columnWordsCache[col] ?? [];
+        const within = token > 0 && words.length ? wordIndexOfToken(words, token) : 0;
+        return wordsBefore(this.columnWordsCache, col) + within;
+    }
+
+    /** RSVP token index (on column `col`) of chapter word `word`. */
+    private tokenAtWord(col: number, word: number): number {
+        const words = this.columnWordsCache[col] ?? [];
+        const within = Math.max(0, word - wordsBefore(this.columnWordsCache, col));
+        return within > 0 && words.length ? tokenIndexOfWord(words, within) : 0;
     }
 
     /**

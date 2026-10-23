@@ -4,7 +4,7 @@ Project: `/Users/eugene/deepseek-test/rsvp-reader`. I only read files: nothing w
 
 ## Status (2026-10-23): to-do lists done
 
-Every item in sections 6 and 8 below has been implemented and committed, and most bugs listed in section 5 are fixed or no longer apply (the ones still open are listed at the end of this section). Sections 1–5 and 7 are kept as written: they describe the code **as it was when it was assessed** (commit `1dc7805`), and their line references point into that version. For the current architecture, see `AGENTS.md`.
+Every item in sections 6 and 8 below has been implemented and committed, and every bug listed in section 5 is fixed or no longer applies. Sections 1–5 and 7 are kept as written: they describe the code **as it was when it was assessed** (commit `1dc7805`), and their line references point into that version. For the current architecture, see `AGENTS.md`.
 
 What changed, in commit order:
 
@@ -24,12 +24,9 @@ What changed, in commit order:
 | `026b8d0`, `0696235` | Lint/format tooling, CI script, docs, debug logging (item 9) |
 | `b66e6ed` … `cd4e181` | The features in section 8, plus opening books from Finder |
 
-Verdict now: the original C+ (section 7) no longer applies. The app has a clear module structure, 114 frontend and 14 Rust tests and a passing CI script.
+Verdict now: the original C+ (section 7) no longer applies. The app has a clear module structure, 120 frontend and 14 Rust tests and a passing CI script.
 
-Still open from section 5:
-- Item 9 (first half): during RSVP playback every word restarts the 300 ms save debounce, so the position is saved only at pauses longer than that (mostly punctuation). The resize write storm is fixed.
-- Item 13: tokens that are neither words nor punctuation (e.g. `&`, `#`) get a 0 ms delay; the tokenizer's leading-punctuation pass splices in a loop (quadratic); the countdown uses `setInterval` and can drift.
-- Positions kept across a reflow treat RSVP's token offset as a word offset, so they can land a word or two off in text with standalone punctuation.
+The last items from section 5 were fixed afterwards: the position is saved at most a second after it changes, also during RSVP playback; symbols such as `&` are shown for a word's time instead of 0 ms; the tokenizer's glue pass is linear; the countdown measures against the clock instead of counting ticks; and positions kept across a reflow convert between RSVP tokens and page words.
 
 Optional: signing and notarizing the app to share it, and pushing the repository to a remote so the GitHub Actions workflow runs.
 
