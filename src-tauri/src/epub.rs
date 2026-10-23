@@ -1,3 +1,4 @@
+use rbook::epub::rewrite::{EpubRewriteOptions, PathRewrite};
 use rbook::Epub;
 use serde::Serialize;
 use std::sync::Mutex;
@@ -66,12 +67,22 @@ pub async fn open_epub(path: String, state: tauri::State<'_, AppState>) -> Resul
     Ok(metadata)
 }
 
+/// A chapter's XHTML. Book-relative paths in it (`img src`, `a href`, SVG
+/// image `href`) are rewritten to absolute book paths such as
+/// `/OEBPS/Images/1.png`, so the frontend can load images and follow links
+/// without knowing where the chapter file sits. `#fragment` links and URLs
+/// with a scheme are left alone. Chapters that aren't well-formed XML can't
+/// be rewritten and are returned unchanged.
 #[tauri::command]
 pub async fn get_chapter_html(index: usize, state: tauri::State<'_, AppState>) -> Result<String, String> {
     let guard = state.epub.lock().map_err(|e| e.to_string())?;
     let epub = guard.as_ref().ok_or("No book loaded")?;
-    let reader = epub.reader();
-    let content = reader
+    let rewrite = EpubRewriteOptions::new().rewrite_paths(PathRewrite::root_relative());
+    if let Ok(content) = epub.reader_builder().rewrite(rewrite).create().get(index) {
+        return Ok(content.into_string());
+    }
+    let content = epub
+        .reader()
         .get(index)
         .map_err(|e| format!("Failed to read chapter {index}: {e}"))?;
     Ok(content.into_string())
@@ -114,36 +125,75 @@ pub async fn get_image_sizes(paths: Vec<String>, state: tauri::State<'_, AppStat
         .collect())
 }
 
+/// Resolve a link `href` (percent-encoded, relative or absolute, optionally
+/// with `#fragment` or `?query`) found in the chapter at absolute book path
+/// `base`. Returns the percent-decoded, normalized absolute path and the
+/// decoded fragment. The path is empty for a fragment-only link.
+pub fn resolve_link(base: &str, href: &str) -> (String, Option<String>) {
+    let decode = |s: &str| percent_encoding::percent_decode_str(s).decode_utf8_lossy().into_owned();
+    let (rest, fragment) = match href.split_once('#') {
+        Some((p, f)) => (p, Some(decode(f))),
+        None => (href, None),
+    };
+    let path = decode(rest.split('?').next().unwrap_or(""));
+    if path.is_empty() {
+        return (String::new(), fragment);
+    }
+    let joined = if path.starts_with('/') {
+        path
+    } else {
+        let dir = base.rfind('/').map_or("", |i| &base[..i]);
+        format!("{}/{path}", decode(dir))
+    };
+    let mut parts: Vec<&str> = Vec::new();
+    for part in joined.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                parts.pop();
+            }
+            _ => parts.push(part),
+        }
+    }
+    (format!("/{}", parts.join("/")), fragment)
+}
+
+/// Index of the chapter whose (decoded, absolute) path is exactly `path`.
+pub fn find_chapter(chapter_paths: &[String], path: &str) -> Option<usize> {
+    chapter_paths.iter().position(|p| p == path)
+}
+
+/// Resolve a link clicked in chapter `from` to the chapter it points at.
 #[tauri::command]
-pub async fn resolve_chapter_link(href: String, state: tauri::State<'_, AppState>) -> Result<ResolvedLink, String> {
+pub async fn resolve_chapter_link(href: String, from: usize, state: tauri::State<'_, AppState>) -> Result<ResolvedLink, String> {
     let guard = state.epub.lock().map_err(|e| e.to_string())?;
     let epub = guard.as_ref().ok_or("No book loaded")?;
 
-    let fragment_pos = href.find('#');
-    let (path, fragment) = match fragment_pos {
-        Some(pos) => (&href[..pos], Some(&href[pos + 1..])),
-        None => (href.as_str(), None),
-    };
+    let spine = epub.spine();
+    let chapter_paths: Vec<String> = (0..spine.len())
+        .map(|i| {
+            spine
+                .get(i)
+                .and_then(|entry| entry.manifest_entry())
+                .map(|m| resolve_link("", m.href().as_str()).0)
+                .unwrap_or_default()
+        })
+        .collect();
 
+    let base = epub
+        .spine()
+        .get(from)
+        .and_then(|entry| entry.manifest_entry())
+        .map(|m| m.href().as_str().to_string())
+        .unwrap_or_default();
+    let (path, anchor) = resolve_link(&base, &href);
     if path.is_empty() {
         return Err("Anchor-only link; no chapter to resolve".into());
     }
 
-    let spine = epub.spine();
-    for i in 0..spine.len() {
-        let entry = spine.get(i).ok_or("spine item missing")?;
-        if let Some(manifest_entry) = entry.manifest_entry() {
-            let entry_href = manifest_entry.href().to_string();
-            if entry_href == path || entry_href.ends_with(path) || path.ends_with(&entry_href) {
-                return Ok(ResolvedLink {
-                    chapter_index: i,
-                    anchor: fragment.map(|s| s.to_string()),
-                });
-            }
-        }
-    }
-
-    Err(format!("No chapter found for link '{href}'"))
+    find_chapter(&chapter_paths, &path)
+        .map(|chapter_index| ResolvedLink { chapter_index, anchor })
+        .ok_or_else(|| format!("No chapter found for link '{href}'"))
 }
 
 #[cfg(test)]
@@ -158,5 +208,35 @@ mod tests {
         assert_eq!(content_id(b""), "cbf29ce484222325");
         assert_eq!(content_id(b"a"), "af63dc4c8601ec8c");
         assert!(content_id(b"x").chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn test_resolve_link_relative_to_chapter() {
+        let base = "/OEBPS/Text/ch1.xhtml";
+        assert_eq!(resolve_link(base, "ch2.xhtml"), ("/OEBPS/Text/ch2.xhtml".into(), None));
+        assert_eq!(resolve_link(base, "./ch2.xhtml#n1"), ("/OEBPS/Text/ch2.xhtml".into(), Some("n1".into())));
+        assert_eq!(resolve_link(base, "../Notes/notes.xhtml#fn3"), ("/OEBPS/Notes/notes.xhtml".into(), Some("fn3".into())));
+        assert_eq!(resolve_link(base, "/OEBPS/Text/ch9.xhtml"), ("/OEBPS/Text/ch9.xhtml".into(), None));
+    }
+
+    #[test]
+    fn test_resolve_link_decodes_and_strips_query() {
+        let base = "/OEBPS/My%20Book/ch1.xhtml";
+        assert_eq!(resolve_link(base, "Part%202.xhtml?x=1#sec%201"), ("/OEBPS/My Book/Part 2.xhtml".into(), Some("sec 1".into())));
+    }
+
+    #[test]
+    fn test_resolve_link_fragment_only() {
+        assert_eq!(resolve_link("/OEBPS/ch1.xhtml", "#fn2"), (String::new(), Some("fn2".into())));
+    }
+
+    #[test]
+    fn test_find_chapter_is_exact() {
+        let chapters: Vec<String> = ["/OEBPS/ch1.xhtml", "/OEBPS/ch11.xhtml", "/OEBPS/text/1.xhtml"]
+            .iter().map(|s| s.to_string()).collect();
+        assert_eq!(find_chapter(&chapters, "/OEBPS/ch11.xhtml"), Some(1));
+        // The old suffix matching sent "1.xhtml" to "ch11.xhtml" (or ch1.xhtml).
+        assert_eq!(find_chapter(&chapters, "/OEBPS/1.xhtml"), None);
+        assert_eq!(find_chapter(&chapters, "/OEBPS/text/1.xhtml"), Some(2));
     }
 }

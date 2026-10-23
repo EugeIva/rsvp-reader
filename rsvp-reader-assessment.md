@@ -161,7 +161,7 @@ The confirmed bugs are traced through the code; none were reproduced at runtime.
    - Write files atomically.
    - Key state by a hash of the book's identifier or content rather than its path.
 7. ✅ **Done.** **Split the god components.** For example: a `bookLoader` module, a `pagination` controller (measure, relayout, premeasure), a `useRsvpPlayback` that owns the engine and page advance, and a `CountdownTimer`.
-8. **Fix the Rust text helpers** (items 5, 6):
+8. ✅ **Done** (text helpers were deleted in item 5; links and image paths fixed). **Fix the Rust text helpers** (items 5, 6):
    - End entity mode on a non-entity character and decode hex entities.
    - Skip `<head>`, `<style>` and `<script>` text.
    - Resolve links and image paths against the chapter path, with exact matches.

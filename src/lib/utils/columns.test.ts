@@ -81,6 +81,12 @@ describe("processHtmlDoc", () => {
         expect(unknown.style.width).toBe("");
     });
 
+    it("serves absolute book paths (as rewritten by the backend) over epub://", async () => {
+        const el = await sanitized('<img id="abs" src="/OEBPS/Images/pic.png"><a id="lnk" href="/OEBPS/Text/ch2.xhtml#n1">n</a>');
+        expect(el.querySelector("#abs")?.getAttribute("src")).toBe("epub://localhost/%2FOEBPS%2FImages%2Fpic.png");
+        expect(el.querySelector("#lnk")?.getAttribute("href")).toBe("/OEBPS/Text/ch2.xhtml#n1");
+    });
+
     it("uses a blank placeholder for measuring, keeping the size, so nothing is downloaded", async () => {
         const { html } = await processHtmlDoc(chapter('<img id="ok" src="images/pic.png"><img id="unknown" src="x.svg">'), { forMeasure: true });
         const el = document.createElement("div");

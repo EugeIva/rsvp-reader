@@ -19,6 +19,7 @@ export interface ResolvedLink {
     anchor: string | null;
 }
 
-export async function resolveChapterLink(href: string): Promise<ResolvedLink> {
-    return invoke<ResolvedLink>("resolve_chapter_link", { href });
+/** Resolve a link clicked in chapter `from` to the chapter it points at. */
+export async function resolveChapterLink(href: string, from: number): Promise<ResolvedLink> {
+    return invoke<ResolvedLink>("resolve_chapter_link", { href, from });
 }

@@ -6,7 +6,7 @@ import "$lib/epubFlow.css";
 
 // Part of every saved page-count cache key; bump it when a change to layout
 // or measuring could change page counts, so stale caches are ignored.
-const LAYOUT_VERSION = 2;
+const LAYOUT_VERSION = 3;
 
 // Shown instead of a chapter that fails to process; raw EPUB HTML is never
 // rendered unsanitized.

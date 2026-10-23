@@ -190,7 +190,7 @@
                     targetEl.scrollIntoView({ block: "start" });
                 }
             } else {
-                resolveChapterLink(href).then((resolved) => {
+                resolveChapterLink(href, currentChapter).then((resolved) => {
                     let offset = 0;
                     for (let ci = 0; ci < resolved.chapter_index; ci++) offset += $chapterPageCounts[ci] || 1;
                     pager.pendingAnchor = resolved.anchor;
