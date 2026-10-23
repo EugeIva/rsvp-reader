@@ -71,21 +71,21 @@ describe("processHtmlDoc", () => {
         expect(el.textContent).toContain("text");
     });
 
-    it("serves book images over epub:// with their size set up front", async () => {
+    it("serves book images over book:// with their size set up front", async () => {
         const el = await sanitized('<img id="ok" src="images/pic.png"><img id="unknown" src="../img/x.svg">');
         const ok = el.querySelector<HTMLImageElement>("#ok")!;
-        expect(ok.getAttribute("src")).toBe("epub://localhost/images%2Fpic.png");
+        expect(ok.getAttribute("src")).toBe("book://localhost/images%2Fpic.png");
         expect(ok.style.width).toBe("640px");
         const unknown = el.querySelector<HTMLImageElement>("#unknown")!;
-        expect(unknown.getAttribute("src")).toBe("epub://localhost/..%2Fimg%2Fx.svg");
+        expect(unknown.getAttribute("src")).toBe("book://localhost/..%2Fimg%2Fx.svg");
         expect(unknown.style.width).toBe("");
     });
 
-    it("serves absolute book paths (as rewritten by the backend) over epub://", async () => {
+    it("serves absolute book paths (as rewritten by the backend) over book://", async () => {
         const el = await sanitized(
             '<img id="abs" src="/OEBPS/Images/pic.png"><a id="lnk" href="/OEBPS/Text/ch2.xhtml#n1">n</a>',
         );
-        expect(el.querySelector("#abs")?.getAttribute("src")).toBe("epub://localhost/%2FOEBPS%2FImages%2Fpic.png");
+        expect(el.querySelector("#abs")?.getAttribute("src")).toBe("book://localhost/%2FOEBPS%2FImages%2Fpic.png");
         expect(el.querySelector("#lnk")?.getAttribute("href")).toBe("/OEBPS/Text/ch2.xhtml#n1");
     });
 
@@ -100,7 +100,7 @@ describe("processHtmlDoc", () => {
         expect(ok.getAttribute("src")).toMatch(/^data:image\/gif;base64,/);
         expect(ok.style.width).toBe("640px");
         // Unknown size: the real image is needed to lay the page out.
-        expect(el.querySelector("#unknown")?.getAttribute("src")).toBe("epub://localhost/x.svg");
+        expect(el.querySelector("#unknown")?.getAttribute("src")).toBe("book://localhost/x.svg");
     });
 
     it("looks up each image size once per book", async () => {
@@ -166,14 +166,14 @@ describe("processHtmlDoc", () => {
         expect(html).toContain("unclosed");
     });
 
-    it("loads an SVG <image> cover over epub://, and never a remote one", async () => {
+    it("loads an SVG <image> cover over book://, and never a remote one", async () => {
         const raw = `<html xmlns="http://www.w3.org/1999/xhtml"><head><title/></head><body class="cover">
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 522"><image height="522" width="350" xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="/OPS/images/cover.jpg"/></svg>
 <svg xmlns="http://www.w3.org/2000/svg"><image id="remote" href="https://tracker.example/x.png"/></svg></body></html>`;
         const el = document.createElement("div");
         el.innerHTML = (await processHtmlDoc(raw)).html;
         const images = el.querySelectorAll("image");
-        expect(images[0]?.getAttribute("href")).toBe("epub://localhost/%2FOPS%2Fimages%2Fcover.jpg");
+        expect(images[0]?.getAttribute("href")).toBe("book://localhost/%2FOPS%2Fimages%2Fcover.jpg");
         expect(images[0]?.getAttribute("xlink:href")).toBeNull();
         expect(el.innerHTML).not.toContain("tracker.example");
 

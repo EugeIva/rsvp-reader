@@ -90,7 +90,7 @@ function chapterBody(raw: string): string {
 
 /**
  * Parse and sanitize chapter HTML with DOMPurify (remote resources blocked),
- * then point the book's images at the epub:// scheme. Images whose size is
+ * then point the book's images at the book:// scheme. Images whose size is
  * known get an explicit width and aspect ratio, so the page layout is final
  * before they load. With `forMeasure`, those images use a blank placeholder
  * instead, so measuring downloads nothing. Returns the body innerHTML, or a
@@ -115,7 +115,7 @@ export async function processHtmlDoc(
                 img.style.width = `${size[0]}px`;
                 img.style.setProperty("aspect-ratio", `${size[0]} / ${size[1]}`);
             }
-            img.setAttribute("src", opts.forMeasure && size ? BLANK_IMAGE : convertFileSrc(src, "epub"));
+            img.setAttribute("src", opts.forMeasure && size ? BLANK_IMAGE : convertFileSrc(src, "book"));
         }
         // SVG <image> (typical for covers): its size comes from the SVG, so
         // measuring never needs the picture itself.
@@ -123,7 +123,7 @@ export async function processHtmlDoc(
             const href = image.getAttribute("href") ?? image.getAttribute("xlink:href");
             if (!isBookImage(href)) continue;
             image.removeAttribute("xlink:href");
-            image.setAttribute("href", opts.forMeasure ? BLANK_IMAGE : convertFileSrc(href, "epub"));
+            image.setAttribute("href", opts.forMeasure ? BLANK_IMAGE : convertFileSrc(href, "book"));
         }
 
         for (const link of frag.querySelectorAll("a")) {

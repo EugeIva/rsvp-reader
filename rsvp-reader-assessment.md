@@ -295,3 +295,4 @@ This is a **working prototype with a sensible core idea and uneven execution**.
   - Clear the stack when another book is opened. Decide whether ordinary page turns should clear it too; keeping it until it's used is simpler and matches browser "back".
   - Web links (`http(s)://`) open in the system browser and don't touch the stack.
 - [x] **Horizontal page slider below the page for quick navigation.** Drag to any page (the target page shows while dragging; the jump happens on release), click the track to jump, or use the arrow keys when it's focused.
+- [x] **Open FB2 books (and zipped `.fb2.zip`).** Detected by content; converted to XHTML chapters in the backend (cover, innermost sections, notes), windows-1251 and other legacy encodings decoded, embedded images served, footnote links work with the back-link. Open dialog, drag-and-drop and Finder accept FB2.

@@ -21,7 +21,7 @@
     import { tick } from "svelte";
     import { dbg, logError } from "$lib/utils/debug";
     import { syncSettings } from "$lib/utils/settings";
-    import { openBook, firstEpubPath } from "$lib/utils/openBook";
+    import { openBook, firstBookPath } from "$lib/utils/openBook";
 
     dbg("boot: +page module loaded");
 
@@ -48,23 +48,23 @@
         };
     });
 
-    // Open an EPUB dropped onto the window; other files are ignored. The
-    // overlay shows only while an EPUB is being dragged over the window.
-    let draggingEpub = $state(false);
+    // Open a book (EPUB, FB2) dropped onto the window; other files are
+    // ignored. The overlay shows only while a book is dragged over the window.
+    let draggingBook = $state(false);
     $effect(() => {
         let unlisten: (() => void) | null = null;
         let disposed = false;
         getCurrentWebview()
             .onDragDropEvent(({ payload }) => {
                 if (payload.type === "enter") {
-                    draggingEpub = firstEpubPath(payload.paths) !== null;
+                    draggingBook = firstBookPath(payload.paths) !== null;
                 } else if (payload.type === "leave") {
-                    draggingEpub = false;
+                    draggingBook = false;
                 } else if (payload.type === "drop") {
-                    draggingEpub = false;
-                    const path = firstEpubPath(payload.paths);
+                    draggingBook = false;
+                    const path = firstBookPath(payload.paths);
                     if (!path) return;
-                    // A file that isn't a readable EPUB is ignored too.
+                    // A file that isn't a readable book is ignored too.
                     openBook(path).catch((e) => dbg("drop: open failed", String(e)));
                 }
             })
@@ -169,7 +169,7 @@
     <Reader />
 {/if}
 
-{#if draggingEpub}
+{#if draggingBook}
     <div class="drop-overlay"><span>Drop to open</span></div>
 {/if}
 

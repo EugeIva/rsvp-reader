@@ -15,8 +15,8 @@
         "default-src": "'self'",
         "script-src": "'self'",
         "style-src": "'self' 'unsafe-inline'",
-        "img-src": "'self' data: blob: epub: http://epub.localhost",
-        "media-src": "'self' data: blob: epub: http://epub.localhost",
+        "img-src": "'self' data: blob: book: http://book.localhost",
+        "media-src": "'self' data: blob: book: http://book.localhost",
         "font-src": "'self' data:",
         "connect-src": "'self' ipc: http://ipc.localhost",
         "object-src": "'none'",
@@ -32,7 +32,7 @@
     "targets": "all",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "category": "Education",
-    "shortDescription": "EPUB reader with page and RSVP (speed reading) modes",
+    "shortDescription": "EPUB and FB2 reader with page and RSVP (speed reading) modes",
     "copyright": "Copyright © 2026 eugene",
     "macOS": {
       "minimumSystemVersion": "12.0"
@@ -44,6 +44,13 @@
         "name": "EPUB book",
         "description": "EPUB book",
         "mimeType": "application/epub+zip",
+        "role": "Viewer"
+      },
+      {
+        "ext": ["fb2"],
+        "name": "FB2 book",
+        "description": "FictionBook 2 book",
+        "mimeType": "application/x-fictionbook+xml",
         "role": "Viewer"
       }
     ]

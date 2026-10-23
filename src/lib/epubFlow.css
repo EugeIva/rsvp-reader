@@ -60,3 +60,52 @@
     background-color: rgba(106, 156, 245, 0.35);
     color: #fff;
 }
+
+/*
+ * FB2 books (converted in src-tauri/src/fb2.rs). Scoped to .fb2 so EPUBs
+ * that use the same class names keep their layout.
+ */
+.epub-flow .fb2 .title,
+.epub-flow .fb2 .subtitle {
+    text-align: center;
+}
+.epub-flow .fb2 .epigraph {
+    margin: 0.8em 0 0.8em 30%;
+    font-style: italic;
+}
+.epub-flow .fb2 .cite {
+    margin: 0.8em 1.5em;
+}
+.epub-flow .fb2 .text-author,
+.epub-flow .fb2 .date {
+    text-align: right;
+    font-style: italic;
+}
+.epub-flow .fb2 .poem {
+    margin: 0.8em 0 0.8em 2em;
+}
+.epub-flow .fb2 .stanza {
+    margin: 0.6em 0;
+}
+.epub-flow .fb2 .v,
+.epub-flow .fb2 .empty-line {
+    margin: 0;
+}
+.epub-flow .fb2 .note {
+    margin: 0.6em 0;
+}
+.epub-flow .fb2 .note-title {
+    margin-bottom: 0.2em;
+}
+.epub-flow .fb2 .note-ref {
+    text-decoration: none;
+}
+.epub-flow .fb2 table {
+    border-collapse: collapse;
+    margin: 0.6em 0;
+}
+.epub-flow .fb2 td,
+.epub-flow .fb2 th {
+    border: 1px solid #444;
+    padding: 0.2em 0.4em;
+}

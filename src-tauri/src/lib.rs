@@ -1,7 +1,9 @@
+mod book;
 mod epub;
+mod fb2;
 mod state;
 
-use epub::AppState;
+use book::AppState;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
@@ -12,12 +14,12 @@ use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 #[derive(Default)]
 struct PendingOpen(Mutex<Option<String>>);
 
-/// The first `.epub` among the opened URLs, as a file path.
-fn epub_path_from_urls(urls: &[tauri::Url]) -> Option<String> {
+/// The first book (.epub, .fb2, .fb2.zip) among the opened URLs, as a file path.
+fn book_path_from_urls(urls: &[tauri::Url]) -> Option<String> {
     urls.iter()
         .filter_map(|u| u.to_file_path().ok())
         .map(|p| p.to_string_lossy().into_owned())
-        .find(|p| p.to_lowercase().ends_with(".epub"))
+        .find(|p| book::is_book_path(p))
 }
 
 /// Take (and clear) the book waiting to be opened, if any.
@@ -29,7 +31,7 @@ fn take_pending_open(state: tauri::State<'_, PendingOpen>) -> Option<String> {
 fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
     #[cfg(target_os = "macos")]
     if let tauri::RunEvent::Opened { urls } = event {
-        if let Some(path) = epub_path_from_urls(&urls) {
+        if let Some(path) = book_path_from_urls(&urls) {
             if let Ok(mut pending) = app.state::<PendingOpen>().0.lock() {
                 *pending = Some(path);
             }
@@ -47,22 +49,22 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
-            epub: Mutex::new(None),
+            book: Mutex::new(None),
         })
         .manage(PendingOpen::default())
-        // Book images are served as epub://localhost/<resource path> (built
+        // Book images are served as book://localhost/<resource path> (built
         // with convertFileSrc on the frontend), so the webview loads and
         // caches them itself instead of receiving base64 over IPC.
-        .register_asynchronous_uri_scheme_protocol("epub", |ctx, request, responder| {
+        .register_asynchronous_uri_scheme_protocol("book", |ctx, request, responder| {
             let app = ctx.app_handle().clone();
             std::thread::spawn(move || {
                 let raw = request.uri().path().trim_start_matches('/');
                 let path = percent_encoding::percent_decode_str(raw)
                     .decode_utf8_lossy()
                     .into_owned();
-                let response = match epub::read_resource(&app.state::<AppState>(), &path) {
-                    Ok(bytes) => tauri::http::Response::builder()
-                        .header("Content-Type", epub::mime_for(&path))
+                let response = match book::read_resource(&app.state::<AppState>(), &path) {
+                    Ok((bytes, mime)) => tauri::http::Response::builder()
+                        .header("Content-Type", mime)
                         .body(bytes),
                     Err(e) => tauri::http::Response::builder()
                         .status(404)
@@ -89,10 +91,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            epub::open_epub,
-            epub::get_chapter_html,
-            epub::get_image_sizes,
-            epub::resolve_chapter_link,
+            book::open_book,
+            book::get_chapter_html,
+            book::get_image_sizes,
+            book::resolve_chapter_link,
             state::save_state,
             state::load_state,
             state::load_settings,
@@ -111,7 +113,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_epub_path_from_urls() {
+    fn test_book_path_from_urls() {
         let urls: Vec<tauri::Url> = [
             "file:///Users/me/Books/cover.jpg",
             "file:///Users/me/Books/%D0%9F%D1%80%D0%B0%D0%B6%D1%81%D0%BA%D0%BE%D0%B5%20%D0%BA%D0%BB%D0%B0%D0%B4%D0%B1%D0%B8%D1%89%D0%B5.EPUB",
@@ -121,13 +123,13 @@ mod tests {
         .map(|s| s.parse().unwrap())
         .collect();
         assert_eq!(
-            epub_path_from_urls(&urls).as_deref(),
+            book_path_from_urls(&urls).as_deref(),
             Some("/Users/me/Books/Пражское кладбище.EPUB")
         );
         let none: Vec<tauri::Url> = vec![
             "file:///a/notes.txt".parse().unwrap(),
             "https://example.com/b.epub".parse().unwrap(),
         ];
-        assert_eq!(epub_path_from_urls(&none), None);
+        assert_eq!(book_path_from_urls(&none), None);
     }
 }

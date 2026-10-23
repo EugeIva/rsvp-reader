@@ -1,6 +1,7 @@
 # rsvp-reader
 
-A desktop EPUB reader for macOS with two reading modes:
+A desktop reader for EPUB and FB2 books (also zipped `.fb2.zip`) for macOS,
+with two reading modes:
 
 - **Page mode** — the book laid out in pages (CSS columns), with footnote and
   chapter links, images and an adjustable font size.
@@ -9,8 +10,11 @@ A desktop EPUB reader for macOS with two reading modes:
   to its length, punctuation and a complexity score (English and Russian),
   and an optional countdown limits a reading session.
 
-Built with [Tauri 2](https://tauri.app) (Rust backend, `rbook` for EPUB
-parsing) and SvelteKit / Svelte 5 (static SPA).
+Built with [Tauri 2](https://tauri.app) (Rust backend: `rbook` for EPUB,
+`roxmltree` for FB2) and SvelteKit / Svelte 5 (static SPA).
+
+Books open from the Open button, by dropping them onto the window, or from
+Finder ("Open With", or double-click once RSVP Reader is the default app).
 
 ## Requirements
 

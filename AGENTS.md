@@ -1,6 +1,6 @@
 # AGENTS.md — rsvp-reader project guide
 
-EPUB reader (Tauri 2 + SvelteKit 5 SPA) with two reading modes: **page mode** (renders EPUB HTML with the browser's native column pagination) and **RSVP mode** (rapid serial visual presentation, word-at-a-time).
+EPUB and FB2 reader (Tauri 2 + SvelteKit 5 SPA) with two reading modes: **page mode** (renders the book's chapters as HTML with the browser's native column pagination) and **RSVP mode** (rapid serial visual presentation, word-at-a-time).
 
 ## Quick commands (run from repo root)
 
@@ -22,11 +22,15 @@ EPUB reader (Tauri 2 + SvelteKit 5 SPA) with two reading modes: **page mode** (r
 
 ```
 src-tauri/                 Rust backend (commands exposed via IPC `invoke`)
-├── src/epub.rs            EPUB: open_epub (+ content id), get_chapter_html (paths rewritten to absolute),
-│                          get_image_sizes, resolve_chapter_link, read_resource for the epub:// scheme
+├── src/book.rs            Format-neutral BookSource trait; open_book (detects the format by content,
+│                          + content id), get_chapter_html, get_image_sizes, resolve_chapter_link,
+│                          read_resource for the book:// scheme
+├── src/epub.rs            EPUB via rbook (paths in chapters rewritten to absolute)
+├── src/fb2.rs             FB2 / .fb2.zip: decoded (windows-1251 etc.) and converted to XHTML chapters
+│                          (innermost sections; cover first, notes bodies last; links point at chapters)
 ├── src/state.rs           Persistence: per-book state (book_<id>.json, atomic writes), window size, debug.log
-├── src/lib.rs             Tauri builder, epub:// URI scheme, command registration, window creation
-└── tauri.conf.json        CSP (img-src allows epub:)
+├── src/lib.rs             Tauri builder, book:// URI scheme, Finder opens, command registration, window
+└── tauri.conf.json        CSP (img-src allows book:), .epub/.fb2 file associations
 
 src/                        SvelteKit SPA (adapter-static, no SSR)
 ├── routes/+page.svelte     Root: switches Library / Reader / RSVPReader; debounced auto-save of state
@@ -83,7 +87,8 @@ src/                        SvelteKit SPA (adapter-static, no SSR)
 - **Mode-switch persistence**: `Reader` unmounts when entering RSVP. The "already loaded" guard lives in module scope in `bookLoader.ts` (holding the book object), so remounting doesn't reset the position or re-fetch the book.
 - **Chapter parsing**: chapters are XHTML and parsed as `application/xhtml+xml` (an empty `<title/>` swallows the body under the HTML parser), falling back to HTML when not well-formed.
 - **HTML sanitization**: DOMPurify allowlist (plus SVG `<image>`), remote resources removed, never falls back to raw HTML. External links open via `openUrl` in `Reader.clickWord`.
-- **Images**: served over `epub://` (paths made absolute by `get_chapter_html`); sizes come from `get_image_sizes` so the layout is final before they load; offscreen measuring uses a blank placeholder. Styled `max-width:100%`, `max-height:calc(var(--page-h) - 3rem)`, `object-fit:contain`.
+- **Formats**: every format becomes chapters of XHTML in the backend (`BookSource`); the frontend never sees the format. FB2 output is wrapped in `.fb2`, which scopes its styles in `epubFlow.css`.
+- **Images**: served over `book://` (paths made absolute by `get_chapter_html`); sizes come from `get_image_sizes` so the layout is final before they load; offscreen measuring uses a blank placeholder. Styled `max-width:100%`, `max-height:calc(var(--page-h) - 3rem)`, `object-fit:contain`.
 - **Saved position**: chapter + word (`anchor`), not a page number; older states with only `page` are applied once all page counts are known.
 
 ## Debugging aids
