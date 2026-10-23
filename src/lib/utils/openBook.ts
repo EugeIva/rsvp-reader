@@ -3,7 +3,6 @@ import {
     book,
     currentPage,
     fontSize,
-    rsvpConfig,
     rsvpWordOffset,
     rsvpActive,
     pageStart,
@@ -11,8 +10,8 @@ import {
     legacyPage,
     pageCountCache,
 } from "$lib/stores";
-import { DEFAULT_RSVP_CONFIG } from "$lib/utils/rsvp";
 import { loadState } from "$lib/utils/persistence";
+import { loadSettings, adoptLegacySettings } from "$lib/utils/settings";
 import { clearImageSizeCache } from "$lib/utils/columns";
 
 const LAST_PATH_KEY = "rsvp-reader:lastPath";
@@ -35,6 +34,7 @@ export function lastOpenedPath(): string | null {
 export async function openBook(path: string): Promise<void> {
     const meta = await openEpub(path);
     const saved = await loadState(meta.id, path);
+    await loadSettings();
 
     clearImageSizeCache();
     rsvpActive.set(false);
@@ -44,20 +44,10 @@ export async function openBook(path: string): Promise<void> {
     pendingWordAnchor.set(saved?.anchor ?? null);
     legacyPage.set(saved && !saved.anchor && saved.page > 0 ? saved.page : null);
     pageCountCache.set(saved?.pageCounts ?? null);
-    if (saved) {
-        fontSize.set(saved.fontSize);
-        rsvpConfig.set({
-            ...DEFAULT_RSVP_CONFIG,
-            wpm: saved.wpm,
-            longWordDelay: saved.longWordDelay,
-            longWordMultiplier: saved.longWordMultiplier,
-            punctuationPause: saved.punctuationPause,
-            punctuationDelayMs: saved.punctuationDelayMs,
-            complexityWeight: saved.complexityWeight,
-            timerMinutes: saved.timerMinutes,
-            timerSeconds: saved.timerSeconds,
-        });
-    }
+    if (saved) fontSize.set(saved.fontSize);
+    // RSVP settings are global; a book saved by an older version may carry
+    // its own, which seed the global settings if there are none yet.
+    adoptLegacySettings(saved?.rsvp);
 
     try {
         localStorage.setItem(LAST_PATH_KEY, path);

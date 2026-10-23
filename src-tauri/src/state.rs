@@ -126,6 +126,21 @@ pub fn load_state(
     }
 }
 
+/// Global RSVP settings (shared by all books).
+fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(data_dir(app)?.join("settings.json"))
+}
+
+#[tauri::command]
+pub fn load_settings(app: tauri::AppHandle) -> Result<Option<serde_json::Value>, String> {
+    read_state_json(&settings_path(&app)?)
+}
+
+#[tauri::command]
+pub fn save_settings(app: tauri::AppHandle, data: serde_json::Value) -> Result<(), String> {
+    write_state_json(&settings_path(&app)?, &data)
+}
+
 #[tauri::command]
 pub fn save_window_size(app: tauri::AppHandle, w: f64, h: f64) -> Result<(), String> {
     let path = window_size_path(&app)?;

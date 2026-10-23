@@ -196,18 +196,18 @@ This is a **working prototype with a sensible core idea and uneven execution**.
 
 ## 8. Feature to-do list (requested by the owner)
 
-- [ ] **Make RSVP settings global, not per book.**
+- [x] **Make RSVP settings global, not per book.**
   - Today `rsvpConfig` is saved inside each book's state file (`+page.svelte:72-79`) and overwritten on every book open by `restoreState` (`Library.svelte:56`, `Reader.svelte:454`).
   - Move it to one `settings.json` in the app data dir, with its own `save_settings` / `load_settings` commands in `state.rs`. Load it once at startup and debounce saves when it changes.
   - Per-book state keeps only position and font size, if font size should stay per book.
   - Migration: if `settings.json` doesn't exist yet, seed it from the last opened book's saved config.
-- [ ] **Remove the "Punctuation pause" ON/OFF button.**
+- [x] **Remove the "Punctuation pause" ON/OFF button.**
   - Remove it from `Controls.svelte:59-61`, along with the slider's `disabled` binding (line 62). The slider already goes down to 0 ms, which means off.
   - Drop `punctuationPause` from `RsvpConfig` (`rsvp.ts:28`), `calculateDelay` (`rsvp.ts:221,231`), `SavedState` and the tests (`rsvp.test.ts:155,168`).
-- [ ] **Remove the "Word length delay" ON/OFF button.**
+- [x] **Remove the "Word length delay" ON/OFF button.**
   - Remove it from `Controls.svelte:68-70` and the slider's `disabled` binding (line 71). The multiplier slider already goes down to 0, which means off.
   - Drop `longWordDelay` from `RsvpConfig` and `calculateDelay` (`rsvp.ts:227`), the persisted fields, and the tests (`rsvp.test.ts:155,161`).
-- [ ] **Add an enable/disable checkbox for the countdown.**
+- [x] **Add an enable/disable checkbox for the countdown.**
   - Add `timerEnabled: boolean` to the global settings and a checkbox next to the timer inputs (`RSVPReader.svelte:324-326`).
   - When it's unchecked, disable the minute and second inputs, skip `startTimer` / `resumeTimer`, and hide the remaining-time display. The minutes and seconds values stay saved, so turning it back on restores them.
   - Today the countdown can only be turned off by setting it to 00:00 (`RSVPReader.svelte:164`).

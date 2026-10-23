@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { PageCountCache, WordAnchor } from "$lib/stores";
 import { DEFAULT_RSVP_CONFIG } from "$lib/utils/rsvp";
+import type { RsvpConfig } from "$lib/utils/rsvp";
 import { dbg } from "$lib/utils/debug";
 
 export interface SavedState {
@@ -9,20 +10,15 @@ export interface SavedState {
     fontSize: number;
     windowWidth: number;
     windowHeight: number;
-    wpm: number;
-    longWordDelay: boolean;
-    longWordMultiplier: number;
-    punctuationPause: boolean;
-    punctuationDelayMs: number;
-    complexityWeight: number;
-    timerMinutes: number;
-    timerSeconds: number;
     // Reading position independent of layout: the word being read (page
     // start + rsvpWordOffset). Absent in states saved by older versions,
     // which only have `page`.
     anchor?: WordAnchor;
     // Page counts for the layout the book was last fully measured at.
     pageCounts?: PageCountCache;
+    // RSVP settings saved per book by versions before settings became
+    // global; only read, to seed settings.json once.
+    rsvp?: RsvpConfig;
 }
 
 const isCount = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0;
@@ -48,29 +44,46 @@ function num(v: unknown, fallback: number, min: number, max: number, int = false
 const bool = (v: unknown, fallback: boolean): boolean => (typeof v === "boolean" ? v : fallback);
 
 /**
+ * Validate RSVP settings (settings.json, or the per-book fields of older
+ * versions): every value is checked and clamped to the range the UI allows.
+ * Older versions had ON/OFF switches for the punctuation pause and the long
+ * word delay; a switch that was OFF becomes a 0 value, which means off now.
+ */
+export function parseRsvpSettings(raw: Record<string, unknown>): RsvpConfig {
+    const d = DEFAULT_RSVP_CONFIG;
+    const timerMinutes = num(raw.timerMinutes, d.timerMinutes, 0, 99, true);
+    const timerSeconds = num(raw.timerSeconds, d.timerSeconds, 0, 59, true);
+    const longWordOff = (raw.longWordDelay ?? raw.long_word_delay) === false;
+    const punctuationOff = (raw.punctuationPause ?? raw.punctuation_pause) === false;
+    return {
+        wpm: num(raw.wpm, d.wpm, 100, 1000, true),
+        longWordThreshold: d.longWordThreshold,
+        longWordMultiplier: longWordOff ? 0 : num(raw.longWordMultiplier, d.longWordMultiplier, 0, 3),
+        punctuationDelayMs: punctuationOff ? 0 : num(raw.punctuationDelayMs, d.punctuationDelayMs, 0, 500, true),
+        complexityWeight: num(raw.complexityWeight ?? raw.complexity_weight, d.complexityWeight, 0, 1),
+        // Before the checkbox existed, a countdown was on whenever a time was set.
+        timerEnabled: bool(raw.timerEnabled, timerMinutes * 60 + timerSeconds > 0),
+        timerMinutes,
+        timerSeconds,
+    };
+}
+
+/**
  * The single place a saved state is validated: every field is checked and
  * clamped to the range the UI allows, falling back to the default, so a
  * hand-edited or corrupt file can't put the reader into an invalid state.
  * Also accepts the snake_case keys of the oldest saved states.
  */
 export function parseSavedState(raw: Record<string, unknown>): SavedState {
-    const d = DEFAULT_RSVP_CONFIG;
     return {
         page: num(raw.page, 0, 0, Number.MAX_SAFE_INTEGER, true),
         rsvpWordOffset: num(raw.rsvpWordOffset ?? raw.rsvp_word_offset, 0, 0, Number.MAX_SAFE_INTEGER, true),
         fontSize: num(raw.fontSize ?? raw.font_size, 1.2, 0.6, 3.0),
         windowWidth: num(raw.windowWidth ?? raw.window_width, 0, 0, 100_000),
         windowHeight: num(raw.windowHeight ?? raw.window_height, 0, 0, 100_000),
-        wpm: num(raw.wpm, d.wpm, 100, 1000, true),
-        longWordDelay: bool(raw.longWordDelay ?? raw.long_word_delay, d.longWordDelay),
-        longWordMultiplier: num(raw.longWordMultiplier, d.longWordMultiplier, 0, 3),
-        punctuationPause: bool(raw.punctuationPause ?? raw.punctuation_pause, d.punctuationPause),
-        punctuationDelayMs: num(raw.punctuationDelayMs, d.punctuationDelayMs, 0, 500, true),
-        complexityWeight: num(raw.complexityWeight ?? raw.complexity_weight, d.complexityWeight, 0, 1),
-        timerMinutes: num(raw.timerMinutes, d.timerMinutes, 0, 99, true),
-        timerSeconds: num(raw.timerSeconds, d.timerSeconds, 0, 59, true),
         anchor: parseAnchor(raw.anchor),
         pageCounts: parsePageCounts(raw.pageCounts),
+        rsvp: "wpm" in raw ? parseRsvpSettings(raw) : undefined,
     };
 }
 

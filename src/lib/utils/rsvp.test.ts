@@ -155,7 +155,7 @@ describe("calculateDelay", () => {
     });
 
     it("returns base delay for short word with variable delay off", () => {
-        const cfg = { ...config, longWordDelay: false, punctuationPause: false };
+        const cfg = { ...config, longWordMultiplier: 0, punctuationDelayMs: 0 };
         const tok: RsvpToken = {
             text: "cat",
             isWord: true,
@@ -168,7 +168,7 @@ describe("calculateDelay", () => {
     });
 
     it("returns delay based on word length with variable delay on", () => {
-        const cfg = { ...config, longWordDelay: true, longWordThreshold: 7, longWordMultiplier: 0.5 };
+        const cfg = { ...config, longWordThreshold: 7, longWordMultiplier: 0.5 };
         const tok: RsvpToken = {
             text: "incomprehensibilities",
             isWord: true,
@@ -182,7 +182,7 @@ describe("calculateDelay", () => {
     });
 
     it("includes punctuation pause when suffix present", () => {
-        const cfg = { ...config, punctuationPause: true, punctuationDelayMs: 200 };
+        const cfg = { ...config, punctuationDelayMs: 200 };
         const tok: RsvpToken = {
             text: "hello",
             isWord: true,
@@ -253,8 +253,8 @@ describe("RsvpEngine", () => {
     const config: RsvpConfig = {
         ...DEFAULT_RSVP_CONFIG,
         wpm: 300,
-        longWordDelay: false,
-        punctuationPause: false,
+        longWordMultiplier: 0,
+        punctuationDelayMs: 0,
         complexityWeight: 0,
     };
 
@@ -433,8 +433,8 @@ describe("getORP and calculateDelay — more cases", () => {
         expect(calculateDelay(word("hello"), { ...base, wpm: 600 })).toBe(100);
     });
 
-    it("adds the punctuation pause, and drops it when disabled", () => {
+    it("adds the punctuation pause, and drops it at 0 ms", () => {
         expect(calculateDelay(word("hello", ","), { ...base, wpm: 300 })).toBe(400);
-        expect(calculateDelay(comma, { ...base, punctuationPause: false })).toBe(0);
+        expect(calculateDelay(comma, { ...base, punctuationDelayMs: 0 })).toBe(0);
     });
 });

@@ -22,26 +22,26 @@ async function ensureComplexity(): Promise<void> {
 }
 ensureComplexity();
 
+// Each delay setting is off at 0: punctuationDelayMs 0 = no punctuation
+// pause, longWordMultiplier 0 = no extra time for long words.
 export interface RsvpConfig {
     wpm: number;
-    longWordDelay: boolean;
-    punctuationPause: boolean;
     longWordThreshold: number;
     longWordMultiplier: number;
     punctuationDelayMs: number;
     complexityWeight: number;
+    timerEnabled: boolean;
     timerMinutes: number;
     timerSeconds: number;
 }
 
 export const DEFAULT_RSVP_CONFIG: RsvpConfig = {
     wpm: 300,
-    longWordDelay: true,
-    punctuationPause: true,
     longWordThreshold: 7,
     longWordMultiplier: 0.5,
     punctuationDelayMs: 200,
     complexityWeight: 0.5,
+    timerEnabled: false,
     timerMinutes: 0,
     timerSeconds: 0,
 };
@@ -230,17 +230,14 @@ export function getORP(word: string): number {
 export function calculateDelay(token: RsvpToken, config: RsvpConfig): number {
     const baseDelay = 60000 / config.wpm;
     if (!token.isWord) {
-        if (token.isPunctuation && config.punctuationPause) {
-            return config.punctuationDelayMs;
-        }
-        return 0;
+        return token.isPunctuation ? config.punctuationDelayMs : 0;
     }
     let delay = baseDelay;
-    if (config.longWordDelay && token.text.length > config.longWordThreshold) {
+    if (token.text.length > config.longWordThreshold) {
         const extra = token.text.length / config.longWordThreshold;
         delay = baseDelay * (1 + (extra - 1) * config.longWordMultiplier);
     }
-    if (config.punctuationPause && token.punctSuffix !== "") {
+    if (token.punctSuffix !== "") {
         delay += config.punctuationDelayMs;
     }
     if (config.complexityWeight > 0) {

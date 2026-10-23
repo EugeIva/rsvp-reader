@@ -40,7 +40,7 @@ export class RsvpPlayback {
         this.countdown = new Countdown(
             () => {
                 const c = get(rsvpConfig);
-                return c.timerMinutes * 60 + c.timerSeconds;
+                return c.timerEnabled ? c.timerMinutes * 60 + c.timerSeconds : 0;
             },
             () => {
                 if (this.engine) this.engine.pause();

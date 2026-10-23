@@ -2,23 +2,18 @@
     import Library from "$lib/components/Library.svelte";
     import Reader from "$lib/components/Reader.svelte";
     import RSVPReader from "$lib/components/RSVPReader.svelte";
-    import {
-        book,
-        rsvpActive,
-        currentPage,
-        rsvpWordOffset,
-        fontSize,
-        rsvpConfig,
-        pageStart,
-        pageCountCache,
-    } from "$lib/stores";
+    import { book, rsvpActive, currentPage, rsvpWordOffset, fontSize, pageStart, pageCountCache } from "$lib/stores";
     import { saveState } from "$lib/utils/persistence";
     import { invoke } from "@tauri-apps/api/core";
     import { getCurrentWindow } from "@tauri-apps/api/window";
     import { tick } from "svelte";
     import { dbg, logError } from "$lib/utils/debug";
+    import { syncSettings } from "$lib/utils/settings";
 
     dbg("boot: +page module loaded");
+
+    // Load the global RSVP settings and save them whenever they change.
+    $effect(() => syncSettings());
 
     $effect(() => {
         // Errors trapped by app.html before the app started.
@@ -74,7 +69,6 @@
         $currentPage;
         $rsvpWordOffset;
         $fontSize;
-        $rsvpConfig;
         $pageStart;
         $pageCountCache;
         windowSizeTick;
@@ -85,21 +79,12 @@
             // saving earlier would overwrite the saved position.
             const start = $pageStart;
             if (!$book || !start) return;
-            const c = $rsvpConfig;
             await saveState($book.id, {
                 page: $currentPage,
                 rsvpWordOffset: $rsvpWordOffset,
                 fontSize: $fontSize,
                 windowWidth: window.innerWidth,
                 windowHeight: window.innerHeight,
-                wpm: c.wpm,
-                longWordDelay: c.longWordDelay,
-                longWordMultiplier: c.longWordMultiplier,
-                punctuationPause: c.punctuationPause,
-                punctuationDelayMs: c.punctuationDelayMs,
-                complexityWeight: c.complexityWeight,
-                timerMinutes: c.timerMinutes,
-                timerSeconds: c.timerSeconds,
                 anchor: { chapter: start.chapter, word: start.word + $rsvpWordOffset },
                 pageCounts: $pageCountCache ?? undefined,
             });

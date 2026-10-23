@@ -58,6 +58,8 @@ pub fn run() {
             epub::resolve_chapter_link,
             state::save_state,
             state::load_state,
+            state::load_settings,
+            state::save_settings,
             state::save_window_size,
             state::log_debug,
         ])
