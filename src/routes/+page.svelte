@@ -6,14 +6,47 @@
     import { saveState } from "$lib/utils/persistence";
     import { invoke } from "@tauri-apps/api/core";
     import { getCurrentWindow } from "@tauri-apps/api/window";
+    import { getCurrentWebview } from "@tauri-apps/api/webview";
     import { tick } from "svelte";
     import { dbg, logError } from "$lib/utils/debug";
     import { syncSettings } from "$lib/utils/settings";
+    import { openBook, firstEpubPath } from "$lib/utils/openBook";
 
     dbg("boot: +page module loaded");
 
     // Load the global RSVP settings and save them whenever they change.
     $effect(() => syncSettings());
+
+    // Open an EPUB dropped onto the window; other files are ignored. The
+    // overlay shows only while an EPUB is being dragged over the window.
+    let draggingEpub = $state(false);
+    $effect(() => {
+        let unlisten: (() => void) | null = null;
+        let disposed = false;
+        getCurrentWebview()
+            .onDragDropEvent(({ payload }) => {
+                if (payload.type === "enter") {
+                    draggingEpub = firstEpubPath(payload.paths) !== null;
+                } else if (payload.type === "leave") {
+                    draggingEpub = false;
+                } else if (payload.type === "drop") {
+                    draggingEpub = false;
+                    const path = firstEpubPath(payload.paths);
+                    if (!path) return;
+                    // A file that isn't a readable EPUB is ignored too.
+                    openBook(path).catch((e) => dbg("drop: open failed", String(e)));
+                }
+            })
+            .then((fn) => {
+                if (disposed) fn();
+                else unlisten = fn;
+            })
+            .catch((e) => logError("drop: listen failed", String(e)));
+        return () => {
+            disposed = true;
+            unlisten?.();
+        };
+    });
 
     $effect(() => {
         // Errors trapped by app.html before the app started.
@@ -100,6 +133,10 @@
     <Reader />
 {/if}
 
+{#if draggingEpub}
+    <div class="drop-overlay"><span>Drop to open</span></div>
+{/if}
+
 <style>
     :global(*) {
         margin: 0;
@@ -116,5 +153,22 @@
         color: #e0e0e0;
         background: #000;
         -webkit-font-smoothing: antialiased;
+    }
+
+    .drop-overlay {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.7);
+        border: 3px dashed #6a9cf5;
+        pointer-events: none;
+        z-index: 100;
+    }
+
+    .drop-overlay span {
+        font-size: 1.5rem;
+        color: #6a9cf5;
     }
 </style>

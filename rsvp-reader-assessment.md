@@ -244,7 +244,7 @@ This is a **working prototype with a sensible core idea and uneven execution**.
   - Ignore the key when focus is in a text field (`e.target` is `input` / `textarea` / contenteditable). The same guard fixes Space toggling play while typing in the RSVP timer fields.
   - The button labels "RSVP (A)" (`Reader.svelte:490`) and "Page mode (A)" (`RSVPReader.svelte:294`) stay as they are.
   - Leave the font-size keys `9` / `0` (`Reader.svelte:420-421`) as they are.
-- [ ] **Open an EPUB by dragging it onto the window. Do nothing if the file isn't an EPUB.**
+- [x] **Open an EPUB by dragging it onto the window. Do nothing if the file isn't an EPUB.**
   - Tauri 2 handles file drops natively, and they're on by default for the window built in `lib.rs:18`. Listen with `getCurrentWebview().onDragDropEvent(...)` in `+page.svelte`.
   - On a `drop` event, take the first path that ends in `.epub` (case-insensitive). If none does, ignore the drop. Optionally, also ignore a file that `open_epub` fails to parse, without showing an error.
   - Route the path through the shared `openBook(path)` service (section 6, item 6), so it works the same from the Library screen and during reading, and stops a running RSVP engine first.

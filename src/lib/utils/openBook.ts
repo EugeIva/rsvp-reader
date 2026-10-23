@@ -17,6 +17,11 @@ import { clearImageSizeCache } from "$lib/utils/columns";
 
 const LAST_PATH_KEY = "rsvp-reader:lastPath";
 
+/** The first path that names an EPUB file (case-insensitive extension), or null. */
+export function firstEpubPath(paths: string[]): string | null {
+    return paths.find((p) => p.toLowerCase().endsWith(".epub")) ?? null;
+}
+
 /** Path of the last book opened, or null. */
 export function lastOpenedPath(): string | null {
     try {

@@ -192,6 +192,19 @@ export class RsvpPlayback {
         wordHighlight.set(true);
     }
 
+    /**
+     * Stop the engine and countdown without touching the stores. For when
+     * the RSVP view goes away for another reason than stop() (for example a
+     * book dropped onto the window), so they don't keep running in the
+     * background and overwrite the new book's position.
+     */
+    dispose() {
+        if (this.engine) this.engine.stop();
+        this.engine = null;
+        this.playing = false;
+        this.countdown.stop();
+    }
+
     updateConfig(cfg: RsvpConfig) {
         if (this.engine && get(rsvpActive)) {
             this.engine.updateConfig(cfg);

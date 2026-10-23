@@ -7,6 +7,7 @@
     import { isModeSwitchKey, isSpaceKey } from "$lib/utils/keys";
 
     const playback = new RsvpPlayback();
+    $effect(() => () => playback.dispose());
 
     $effect(() => {
         if (!$rsvpActive) return;
