@@ -166,7 +166,7 @@ The confirmed bugs are traced through the code; none were reproduced at runtime.
    - Skip `<head>`, `<style>` and `<script>` text.
    - Resolve links and image paths against the chapter path, with exact matches.
    - Add unit tests.
-9. **Tooling hygiene:**
+9. ✅ **Done.** **Tooling hygiene:**
    - `git init`.
    - ESLint + Prettier, plus `cargo clippy`/`fmt`.
    - A CI script running `check`, `test` and `cargo test`.
@@ -258,4 +258,11 @@ This is a **working prototype with a sensible core idea and uneven execution**.
 - [ ] **Add an app icon.**
   - `src-tauri/icons/` has a full set (512×512 `icon.png`, `.icns`, `.ico`), most likely the Tauri template icons.
   - Design a 1024×1024 PNG source, then run `npm run tauri icon path/to/icon.png` to generate every size, including `icon.icns`. `bundle.icon` already points at these files.
-  - Also replace `static/favicon.png`, and set the `<title>` in `app.html`, which is still the template's.
+  - Also replace `static/favicon.png` (the `<title>` in `app.html` was set to "RSVP Reader" in item 9).
+- [ ] **Add a way back to the reading page after following a footnote.**
+  - Today a footnote link moves the reader to the note (same chapter: `Reader.clickWord`, `href="#id"`; another chapter: `resolveChapterLink` + `pager.pendingAnchor`), and the only way back is the note's own backlink, if the book has one, or paging back by hand.
+  - Before following an internal link, remember the reading position as a word anchor (`pageStart` + `rsvpWordOffset`, the same thing `+page.svelte` saves). Keep a stack, so a note that links to another note still leads back step by step.
+  - While the stack isn't empty, show a "← Back to page N" button in the reader's toolbar or bottom bar. Clicking it pops the stack and restores the position the same way a saved position is restored: set `pendingWordAnchor`, move `currentPage` to the start of that chapter, and let `Pagination.afterMeasure` pick the exact page.
+  - Add a keyboard shortcut for it as well, matching the physical key like the `A` key item (for example Backspace, ignored while typing in a field).
+  - Clear the stack when another book is opened. Decide whether ordinary page turns should clear it too; keeping it until it's used is simpler and matches browser "back".
+  - Web links (`http(s)://`) open in the system browser and don't touch the stack.

@@ -1,3 +1,6 @@
+// columnTextsByChapter is read imperatively (entering RSVP), never rendered,
+// so a plain Map is right here.
+/* eslint-disable svelte/prefer-svelte-reactivity */
 import { get } from "svelte/store";
 import {
     book, currentPage, chapterHtmls, chapterPageCounts, readerTotalPages,

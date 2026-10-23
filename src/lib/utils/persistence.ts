@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { PageCountCache, WordAnchor } from "$lib/stores";
 import { DEFAULT_RSVP_CONFIG } from "$lib/utils/rsvp";
+import { dbg } from "$lib/utils/debug";
 
 export interface SavedState {
     page: number;
@@ -75,14 +76,13 @@ export function parseSavedState(raw: Record<string, unknown>): SavedState {
 
 export async function saveState(bookId: string, state: SavedState): Promise<void> {
     try {
-        console.log("persist:saveState", {
+        dbg("persist:saveState", {
             id: bookId,
             anchor: state.anchor,
             offset: state.rsvpWordOffset,
             font: state.fontSize,
         });
         await invoke("save_state", { bookId, data: state });
-        console.log("persist:saveState ok");
     } catch (e) {
         console.error("persist:saveState failed", e);
     }
@@ -94,14 +94,14 @@ export async function saveState(bookId: string, state: SavedState): Promise<void
  */
 export async function loadState(bookId: string, bookPath: string): Promise<SavedState | null> {
     try {
-        console.log("persist:loadState", { id: bookId });
+        dbg("persist:loadState", { id: bookId });
         const raw = await invoke("load_state", { bookId, bookPath });
         if (!raw || typeof raw !== "object") {
-            console.log("persist:loadState not found");
+            dbg("persist:loadState not found");
             return null;
         }
         const state = parseSavedState(raw as Record<string, unknown>);
-        console.log("persist:loadState parsed", state);
+        dbg("persist:loadState parsed", state);
         return state;
     } catch (e) {
         console.error("persist:loadState failed", e);

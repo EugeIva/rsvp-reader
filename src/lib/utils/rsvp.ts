@@ -71,7 +71,7 @@ interface RawToken {
 
 export function tokenize(text: string): RsvpToken[] {
     const raw: RawToken[] = [];
-    const re = /([\p{L}\p{N}]+(?:['\u2019:.\-\/][\p{L}\p{N}]+)*|\S)/gu;
+    const re = /([\p{L}\p{N}]+(?:['\u2019:.\-/][\p{L}\p{N}]+)*|\S)/gu;
     let match: RegExpExecArray | null;
     let prevEnd = 0;
 
@@ -79,7 +79,7 @@ export function tokenize(text: string): RsvpToken[] {
         const raw_text = match[1];
         const spaceBefore = match.index > prevEnd;
         prevEnd = match.index + match[0].length;
-        const isWord = /^[\p{L}\p{N}]+(?:['\u2019:.\-\/][\p{L}\p{N}]+)*$/u.test(raw_text);
+        const isWord = /^[\p{L}\p{N}]+(?:['\u2019:.\-/][\p{L}\p{N}]+)*$/u.test(raw_text);
         raw.push({
             text: raw_text,
             isWord,

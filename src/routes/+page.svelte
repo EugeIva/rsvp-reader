@@ -7,17 +7,19 @@
     import { invoke } from "@tauri-apps/api/core";
     import { getCurrentWindow } from "@tauri-apps/api/window";
     import { tick } from "svelte";
-    import { dbg } from "$lib/utils/debug";
+    import { dbg, logError } from "$lib/utils/debug";
 
     dbg("boot: +page module loaded");
 
     $effect(() => {
+        // Errors trapped by app.html before the app started.
+        const w = window as Window & { __rsvpErrors?: string[] };
         const flushErrors = async () => {
-            const errs = (window as any).__rsvpErrors;
+            const errs = w.__rsvpErrors;
             if (!errs || !errs.length) return;
-            (window as any).__rsvpErrors = [];
+            w.__rsvpErrors = [];
             for (const m of errs) {
-                try { dbg("page-error: " + m); } catch {}
+                try { logError("page-error: " + m); } catch { /* logging is best-effort */ }
             }
         };
         flushErrors();
@@ -41,7 +43,7 @@
             windowSizeTimer = setTimeout(() => {
                 const w = window.innerWidth;
                 const h = window.innerHeight;
-                console.log("win:resize", w + "x" + h);
+                dbg("win:resize", w + "x" + h);
                 invoke("save_window_size", { w, h }).catch(() => {});
                 windowSizeTick++;
             }, 500);

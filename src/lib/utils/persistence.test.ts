@@ -72,8 +72,9 @@ describe("parseSavedState", () => {
     });
 
     it("keeps valid values and reads the oldest snake_case keys", () => {
-        const s = parseSavedState({ wpm: 450, font_size: 1.5, rsvp_word_offset: 7, punctuation_pause: false });
+        const s = parseSavedState({ wpm: 450, font_size: 1.5, rsvp_word_offset: 7, punctuation_pause: false, window_width: 800 });
         expect(s.wpm).toBe(450);
+        expect(s.windowWidth).toBe(800);
         expect(s.fontSize).toBe(1.5);
         expect(s.rsvpWordOffset).toBe(7);
         expect(s.punctuationPause).toBe(false);

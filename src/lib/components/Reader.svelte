@@ -248,6 +248,7 @@
                 onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); clickWord(e); } }}
             >
                 {#if processedHtml}
+                    <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitized by DOMPurify in processHtmlDoc -->
                     {@html processedHtml}
                 {:else}
                     <p class="loading-text">Loading…</p>

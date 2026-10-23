@@ -10,10 +10,6 @@ function allText(tokens: RsvpToken[]): string {
     return tokens.map((t) => t.text + t.punctSuffix).join("");
 }
 
-function textAndSuffix(tokens: RsvpToken[]): string[] {
-    return tokens.map((t) => t.text + (t.punctSuffix || ""));
-}
-
 describe("tokenize", () => {
     it("basic English sentence", () => {
         const tokens = tokenize("Hello, world!");
@@ -347,5 +343,58 @@ describe("RsvpEngine", () => {
         expect(shown).toEqual(["three"]);
         vi.advanceTimersByTime(200);
         expect(ended).toBe(1);
+    });
+});
+
+// Cases ported from the former scripts/test-rsvp.ts (run by hand with tsx;
+// its console.assert checks never failed a run).
+describe("tokenize — word shapes", () => {
+    it("splits a sentence into words with attached punctuation", () => {
+        const tokens = tokenize("Hello, world! How are you?");
+        expect(tokens.map((t) => t.text)).toEqual(["Hello", "world", "How", "are", "you"]);
+        expect(tokens[0].punctSuffix).toBe(",");
+        expect(tokens[1].punctSuffix).toBe("!");
+        expect(tokens[0].orpIndex).toBe(1);
+    });
+
+    it("keeps times, abbreviations, hyphenated words and contractions whole", () => {
+        expect(words(tokenize("at 7:30 pm"))).toContain("7:30");
+        expect(tokenize("at A.M. it").some((t) => t.text === "A.M")).toBe(true);
+        expect(words(tokenize("my mother-in-law is"))).toContain("mother-in-law");
+        expect(words(tokenize("don't stop"))).toContain("don't");
+    });
+
+    it("attaches quotes to the quoted words", () => {
+        const tin = tokenize('he said "tin" to her').find((t) => t.text === "tin");
+        expect(tin?.quotePrefix).toBe('"');
+        expect(tin?.punctSuffix).toBe('"');
+
+        const [first, second] = tokenize('"this day" gone');
+        expect(first.quotePrefix + first.text).toBe('"this');
+        expect(second.text + second.punctSuffix).toBe('day"');
+    });
+});
+
+describe("getORP and calculateDelay — more cases", () => {
+    const base: RsvpConfig = { ...DEFAULT_RSVP_CONFIG, complexityWeight: 0 };
+    const word = (text: string, punctSuffix = ""): RsvpToken => ({
+        text, isWord: true, orpIndex: getORP(text), isPunctuation: false, punctSuffix, quotePrefix: "",
+    });
+    const comma: RsvpToken = { text: ",", isWord: false, orpIndex: -1, isPunctuation: true, punctSuffix: "", quotePrefix: "" };
+
+    it("puts the ORP a third of the way in", () => {
+        expect(getORP("he")).toBe(0);
+        expect(getORP("hel")).toBe(1);
+        expect(getORP("incomprehensibilities")).toBe(7);
+    });
+
+    it("derives the base delay from WPM", () => {
+        expect(calculateDelay(word("hello"), { ...base, wpm: 300 })).toBe(200);
+        expect(calculateDelay(word("hello"), { ...base, wpm: 600 })).toBe(100);
+    });
+
+    it("adds the punctuation pause, and drops it when disabled", () => {
+        expect(calculateDelay(word("hello", ","), { ...base, wpm: 300 })).toBe(400);
+        expect(calculateDelay(comma, { ...base, punctuationPause: false })).toBe(0);
     });
 });

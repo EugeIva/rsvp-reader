@@ -10,69 +10,85 @@ EPUB reader (Tauri 2 + SvelteKit 5 SPA) with two reading modes: **page mode** (r
 | Standalone debug binary | `./launch.sh --debug` (auto-builds if missing) |
 | Release build + launch | `./launch.sh --build` |
 | Frontend build (outputs `build/`) | `npm run build` |
+| All checks (what CI runs) | `npm run ci` (`scripts/ci.sh`) |
 | Frontend typecheck | `npm run check` |
-| Tests (vitest) | `npm run test` |
-| Rust check | `cargo check --manifest-path src-tauri/Cargo.toml` |
+| Lint / format | `npm run lint` / `npm run format` |
+| Tests (vitest) | `npm test` |
+| Rust tests / lints | `cargo test` / `cargo clippy` with `--manifest-path src-tauri/Cargo.toml` |
 
-**⚠️ Critical build gotcha:** standalone binaries MUST be compiled with `--features custom-protocol`. Without it, Tauri treats the build as dev mode and embeds **zero** frontend assets, expecting the Vite server → blank white window. See `src-tauri/Cargo.toml` `[features]`. `launch.sh` handles this; bare `cargo build` does not.
+**⚠️ Critical build gotcha:** standalone binaries MUST be compiled with `--features custom-protocol`. Without it, Tauri treats the build as dev mode and embeds **zero** frontend assets, expecting the Vite server → blank white window. See `src-tauri/Cargo.toml` `[features]`. `launch.sh` handles this; bare `cargo build` does not. Compiling the crate also needs `build/` to exist (`npm run build` first).
 
 ## Architecture map
 
 ```
 src-tauri/                 Rust backend (commands exposed via IPC `invoke`)
-├── src/epub.rs            EPUB: open_epub, get_chapter_html, get_chapter_resource (base64), resolve_chapter_link
-├── src/state.rs           Persistence: save/load state, window size, debug.log
-├── src/lib.rs             Tauri builder, command registration, window creation
-└── Cargo.toml             tauri 2 + rbook 0.7 + base64; [features] custom-protocol
+├── src/epub.rs            EPUB: open_epub (+ content id), get_chapter_html (paths rewritten to absolute),
+│                          get_image_sizes, resolve_chapter_link, read_resource for the epub:// scheme
+├── src/state.rs           Persistence: per-book state (book_<id>.json, atomic writes), window size, debug.log
+├── src/lib.rs             Tauri builder, epub:// URI scheme, command registration, window creation
+└── tauri.conf.json        CSP (img-src allows epub:)
 
 src/                        SvelteKit SPA (adapter-static, no SSR)
-├── routes/+page.svelte     Root: switches Library / Reader / RSVPReader based on stores; auto-save state
+├── routes/+page.svelte     Root: switches Library / Reader / RSVPReader; debounced auto-save of state
 ├── app.html                Shell; global error trap buffers to window.__rsvpErrors
 └── lib/
-    ├── stores.ts           All shared state (writable stores + derived)
-    ├── commands.ts         IPC bindings (openEpub, getChapterHtml/Resource, resolveChapterLink)
-    ├── types.ts            BookMetadata
+    ├── stores.ts           Shared state + page helpers (chapterStartPage, locatePage, updatePageCounts)
+    ├── commands.ts         IPC bindings
+    ├── epubFlow.css        Global styles for laid-out book content (visible page AND offscreen measuring)
     ├── components/
-    │   ├── Library.svelte     Welcome + Open dialog + auto-resume last book
-    │   ├── Reader.svelte      PAGE MODE: columnized HTML, nav, footnote links, RSVP entry
-    │   ├── RSVPReader.svelte  RSVP MODE: tokenizes current column's text via RsvpEngine
-    │   └── Controls.svelte    RSVP speed/complexity/timer controls
+    │   ├── Library.svelte        Welcome + Open dialog + reopen last book
+    │   ├── Reader.svelte         PAGE MODE view: renders the chapter, input, links, RSVP entry
+    │   ├── RSVPReader.svelte     RSVP MODE view
+    │   ├── Controls.svelte       RSVP speed/complexity controls
+    │   └── CountdownTimer.svelte Countdown minute/second inputs
+    ├── reader/
+    │   ├── bookLoader.ts         Per-book reset, chapter HTML fetch (current first, then batches)
+    │   └── pagination.svelte.ts  Pagination: measure, relayout, background measuring, cache, positioning
+    ├── rsvp/
+    │   ├── playback.svelte.ts    RsvpPlayback: page text, RsvpEngine, page advance, play/pause
+    │   └── countdown.svelte.ts   Countdown
+    ├── wordComplexity/           Per-language word scoring (en, ru), word lists loaded lazily
     └── utils/
-        ├── columns.ts         ★ CSS multi-column pagination (epub.js/Foliate technique)
-        ├── rsvp.ts            Tokenizer, ORP, delay calc, RsvpEngine (unit-tested)
-        ├── rsvp.test.ts       36 tests
-        ├── persistence.ts     save/load reading state via IPC
-        └── debug.ts           dbg() → console + debug.log (via log_debug IPC)
+        ├── columns.ts      ★ Chapter processing (XHTML parse, DOMPurify, images) + CSS-column pagination
+        ├── rsvp.ts         Tokenizer, ORP, delay calc, RsvpEngine
+        ├── openBook.ts     Open a book and restore its state (shared by Library and Reader)
+        ├── persistence.ts  Save/load state via IPC; parseSavedState validates every field
+        └── debug.ts        dbg() (dev builds or debug flag) and logError() (always)
 ```
 
 ## Data flow
 
-1. `Library.autoOpen()` / `handleOpen()` → `openEpub()` → sets `book` store.
-2. `Reader` mounts → module-scope `lastLoadedBookPath` guard → `rebuildBook()` fetches each chapter with `getChapterHtml` (→ `chapterHtmls`).
-3. Page mode renders current chapter's sanitized HTML in `.epub-flow`; `paginateFlow()` applies CSS columns (`column-width: pageW`) and measures real page count via a content `Range` (NOT `scrollWidth` — that returns the element's own huge width).
-4. Navigation = scroll the `.epub-viewport` by `colIndex * pageW`.
-5. RSVP entry: `enterRsvp()` pushes the current chapter's per-column word snippets (`extractColumnTexts`) into `rsvpColumnTexts`; RSVP tokenizes those. Cross-chapter during RSVP uses `columnizeOffscreen()`.
+1. `openBook(path)` → `open_epub` (metadata + content id) → `loadState` → restores font, RSVP settings, word anchor and page-count cache → sets `book`.
+2. `Reader` sees a new book (`bookLoader.needsLoad`) → `loadBook()`: page counts from the cache (if measured at this layout) or 1 per chapter, current page = start of the saved chapter, chapter HTML fetched current-first then in parallel batches.
+3. The current chapter's HTML goes through `processHtmlDoc()` and is rendered in `.epub-flow`; images are wrapped, then `paginateFlow()` measures its columns (pages) and `extractColumnWords()` assigns words to pages. The saved word anchor then picks the exact page.
+4. `Pagination.premeasureAll()` measures the other chapters offscreen (nearest first, yielding between chapters) unless the cache matches; the result is saved as the page-count cache.
+5. Navigation = scroll the `.epub-viewport` by `column * pageW`.
+6. RSVP entry: the current chapter's per-column texts go to `rsvpColumnTexts`; `RsvpPlayback` tokenizes the current column and runs `RsvpEngine`. Other chapters are columnized offscreen (`columnizeOffscreen()`).
+7. `+page.svelte` saves state (debounced): `anchor` = page start word + `rsvpWordOffset`, settings, `pageCounts`.
 
 ## Key stores (`stores.ts`)
 
-- `book` — BookState (title, spineCount, chapterWordCounts, filePath)
-- `currentPage` — global column-based page index (NOT word-based)
-- `chapterPageCounts` / derived `readerTotalPages` — per-chapter column counts (page mode)
+- `book` — BookState (id, title, author, spineCount, filePath)
+- `currentPage` — global column-based page index; change page counts only via `updatePageCounts()`, which keeps the same chapter and column
+- `chapterPageCounts` / derived `readerTotalPages`; `chapterHtmls` (+ `chapterHtmlsLoaded`)
+- `pageStart`, `pendingWordAnchor`, `legacyPage`, `pageCountCache` — position and cache restore
 - `rsvpColumnTexts`, `rsvpColumnChapter`, `readerMetrics` — RSVP column sourcing
 - `rsvpActive`, `rsvpWordOffset`, `rsvpConfig`, `fontSize`
 
 ## Architecture decisions (read before editing)
 
-- **Columns engine (`columns.ts`)**: content flows into horizontal columns = pages (`column-fill:auto`, fixed height). `measurePageCount` MUST use `Range.selectNodeContents(el).getBoundingClientRect()` width, not `scrollWidth`. Word counts attribute text-node words **proportionally by fragment width overlap** per column (sums exactly to the chapter's true word count).
+- **Columns engine (`columns.ts`)**: content flows into horizontal columns = pages (`column-fill:auto`, fixed height). `measurePageCount` MUST use `Range.selectNodeContents(el).getBoundingClientRect()` width, not `scrollWidth`. A text node that crosses a page break is assigned to pages word by word (by each word's own position); RSVP starts from the page's word list, so it must match what's on screen.
+- **Offscreen = on-screen layout**: page counts are measured offscreen for chapters not on screen, so anything that affects layout must apply to both: styles live in the global `epubFlow.css`, images get explicit sizes before measuring, `wrapImages()` runs before measuring on both paths. Bump `LAYOUT_VERSION` in `columns.ts` whenever a change could alter page counts, or stale caches are reused.
 - **Margins**: `.epub-viewport` is `position:absolute; inset:0; margin:1.5rem 2rem`. NEVER put padding inside the scrollport — it widens the visible window past one page and causes slivers of adjacent pages.
-- **Mode-switch persistence**: `Reader` unmounts when entering RSVP. The book-rebuild guard lives in `<script context="module">` (`lastLoadedBookPath`) so remounting does NOT reset to page 1. Keep it module-scoped.
-- **Images**: `break-inside:avoid`, `max-width:100%`, `max-height:calc(var(--page-h) - 1rem)`, `object-fit:contain` — scaled to fit, never cropped/split (Foliate behavior).
-- **HTML sanitization** in `processHtmlDoc()`: strips `<script>/<iframe>/<style>`, `on*` handlers; inlines images as base64 via `getChapterResource`; external links get `openUrl` handling in `Reader.clickWord`.
-- **State `page` semantics**: was word-based, now column-based. Restored values from old sessions may be large; `colIndexInChapter` clamps to `counts-1` so it degrades gracefully.
+- **Mode-switch persistence**: `Reader` unmounts when entering RSVP. The "already loaded" guard lives in module scope in `bookLoader.ts` (holding the book object), so remounting doesn't reset the position or re-fetch the book.
+- **Chapter parsing**: chapters are XHTML and parsed as `application/xhtml+xml` (an empty `<title/>` swallows the body under the HTML parser), falling back to HTML when not well-formed.
+- **HTML sanitization**: DOMPurify allowlist (plus SVG `<image>`), remote resources removed, never falls back to raw HTML. External links open via `openUrl` in `Reader.clickWord`.
+- **Images**: served over `epub://` (paths made absolute by `get_chapter_html`); sizes come from `get_image_sizes` so the layout is final before they load; offscreen measuring uses a blank placeholder. Styled `max-width:100%`, `max-height:calc(var(--page-h) - 3rem)`, `object-fit:contain`.
+- **Saved position**: chapter + word (`anchor`), not a page number; older states with only `page` are applied once all page counts are known.
 
 ## Debugging aids
 
-- `dbg()` calls land in `debug.log` at `~/Library/Application Support/com.eugene.rsvp-reader/debug.log` and stdout.
-- `Reader.afterMeasure` logs `measure: chN pages=P total=T` (page counts).
-- `app.html` traps uncaught errors into `window.__rsvpErrors`; `+page.svelte` flushes them via `dbg("page-error: ...")`.
+- `dbg()` writes to the console and `debug.log` at `~/Library/Application Support/com.eugene.rsvp-reader/debug.log` (rotated to `debug.log.1` at 1 MiB). On in dev builds; in a release build set `localStorage.setItem("rsvp-reader:debug", "1")` in the webview console and restart. `logError()` always writes.
+- `Pagination.afterMeasure` logs `measure: chN pages=P total=T`; background measuring logs `premeasure: done|cached total=T`.
+- `app.html` traps uncaught errors into `window.__rsvpErrors`; `+page.svelte` flushes them via `logError("page-error: ...")`.
 - To diagnose a blank/white window: verify the binary has embedded assets (`strings <bin> | grep -c "start\."` should be > 0) — i.e. it was built with `custom-protocol`.

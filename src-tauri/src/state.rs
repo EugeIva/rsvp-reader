@@ -132,10 +132,23 @@ pub fn save_window_size(app: tauri::AppHandle, w: f64, h: f64) -> Result<(), Str
     Ok(())
 }
 
+/// Size at which debug.log is rotated to debug.log.1 (replacing the older one).
+const DEBUG_LOG_MAX_BYTES: u64 = 1024 * 1024;
+
+/// Move `path` to `<path>.1` once it reaches `max_bytes`, so the log keeps
+/// at most two files' worth of history.
+fn rotate_if_large(path: &Path, max_bytes: u64) {
+    if fs::metadata(path).map(|m| m.len() >= max_bytes).unwrap_or(false) {
+        let mut old = path.as_os_str().to_owned();
+        old.push(".1");
+        let _ = fs::rename(path, PathBuf::from(old));
+    }
+}
+
 #[tauri::command]
 pub fn log_debug(app: tauri::AppHandle, msg: String) -> Result<(), String> {
-    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let path = dir.join("debug.log");
+    let path = data_dir(&app)?.join("debug.log");
+    rotate_if_large(&path, DEBUG_LOG_MAX_BYTES);
     use std::io::Write;
     let mut file = std::fs::OpenOptions::new()
         .create(true)
@@ -226,6 +239,25 @@ mod tests {
 
         let result = read_state_json(&path).unwrap();
         assert!(result.is_none(), "corrupt file should return None");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_rotate_if_large() {
+        let dir = std::env::temp_dir().join("rsvp_test_rotate");
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let log = dir.join("debug.log");
+
+        fs::write(&log, b"small").unwrap();
+        rotate_if_large(&log, 10);
+        assert!(log.exists(), "a small log stays in place");
+
+        fs::write(&log, b"0123456789-too-big").unwrap();
+        rotate_if_large(&log, 10);
+        assert!(!log.exists(), "a large log is moved away");
+        assert_eq!(fs::read_to_string(dir.join("debug.log.1")).unwrap(), "0123456789-too-big");
 
         let _ = fs::remove_dir_all(&dir);
     }
