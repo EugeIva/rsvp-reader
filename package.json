@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "lint": "prettier --check . && eslint .",
     "format": "prettier --write .",
-    "ci": "bash scripts/ci.sh"
+    "ci": "bash scripts/ci.sh",
+    "package": "tauri build --bundles app"
   },
   "license": "MIT",
   "dependencies": {

@@ -12,14 +12,19 @@
 #   ./launch.sh --build         Build the release binary, then launch it
 #   ./launch.sh --debug         Launch the existing debug binary
 #   ./launch.sh --check         Print which target would be launched and exit
+#   ./launch.sh --app           Build the macOS app bundle (RSVP Reader.app) and open it
+#   ./launch.sh --install       Build the app bundle, copy it to /Applications and open it
 #
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN=rsvp-reader
+APP_NAME="RSVP Reader.app"
+APP_BUNDLE="$ROOT/src-tauri/target/release/bundle/macos/$APP_NAME"
 
 usage() {
-    sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    # The comment block at the top of this file.
+    sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | grep '^#' | sed 's/^# \{0,1\}//'
     exit 0
 }
 
@@ -30,6 +35,8 @@ case "${1:-}" in
     --build) mode="build" ;;
     --debug) mode="debug" ;;
     --check) mode="check" ;;
+    --app) mode="app" ;;
+    --install) mode="install" ;;
     "") ;;
     *) echo "Unknown option: $1" >&2; usage ;;
 esac
@@ -37,6 +44,21 @@ esac
 if [[ "$mode" == "dev" ]]; then
     cd "$ROOT"
     exec npm run tauri dev
+fi
+
+if [[ "$mode" == "app" || "$mode" == "install" ]]; then
+    cd "$ROOT"
+    # Release build of the frontend and binary, bundled as a .app
+    # (custom-protocol is enabled automatically).
+    npm run package
+    if [[ "$mode" == "install" ]]; then
+        rm -rf "/Applications/$APP_NAME"
+        cp -R "$APP_BUNDLE" /Applications/
+        echo "Installed: /Applications/$APP_NAME"
+        exec open "/Applications/$APP_NAME"
+    fi
+    echo "Built: $APP_BUNDLE"
+    exec open "$APP_BUNDLE"
 fi
 
 if [[ "$mode" == "build" ]]; then

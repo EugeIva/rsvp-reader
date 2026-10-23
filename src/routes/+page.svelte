@@ -69,7 +69,7 @@
     $effect(() => {
         const b = $book;
         if (b) {
-            getCurrentWindow().setTitle(b.title || "rsvp-reader");
+            getCurrentWindow().setTitle(b.title || "RSVP Reader");
         }
     });
 

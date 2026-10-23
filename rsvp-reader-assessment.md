@@ -250,7 +250,7 @@ This is a **working prototype with a sensible core idea and uneven execution**.
   - Route the path through the shared `openBook(path)` service (section 6, item 6), so it works the same from the Library screen and during reading, and stops a running RSVP engine first.
   - Optionally, show a drop-zone overlay on `enter` / `over` and remove it on `leave`.
   - Related: register `.epub` in `bundle.fileAssociations` in `tauri.conf.json`, so double-clicking an EPUB or using "Open With" in Finder also works. That arrives as an `Opened` run event on macOS.
-- [ ] **Build a macOS app bundle.**
+- [x] **Build a macOS app bundle.**
   - `bundle.targets` is `"all"` in `tauri.conf.json`. `npm run tauri build -- --bundles app` (or `dmg`) produces `src-tauri/target/release/bundle/macos/rsvp-reader.app`, and `custom-protocol` is enabled automatically.
   - Add a `./launch.sh --app` mode, or a `package` npm script, that builds it and optionally copies it to `/Applications`.
   - Set `productName` (e.g. "RSVP Reader"), `bundle.category` (`"public.app-category.education"` or `"productivity"`), `bundle.copyright` and `bundle.macOS.minimumSystemVersion`. Also fill in the `Cargo.toml` template metadata (`authors = ["you"]`).
