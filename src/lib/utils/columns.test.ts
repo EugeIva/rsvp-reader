@@ -1,14 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from "vitest";
 
-vi.mock("$lib/commands", () => ({
-    getChapterResource: vi.fn(async (path: string) => {
-        if (path === "images/pic.png") return "UElDREFUQQ==";
-        throw new Error(`no resource ${path}`);
-    }),
+const getImageSizes = vi.fn(async (paths: string[]) =>
+    paths.map((p) => (p === "images/pic.png" ? ([640, 480] as [number, number]) : null))
+);
+vi.mock("$lib/commands", () => ({ getImageSizes: (paths: string[]) => getImageSizes(paths) }));
+vi.mock("@tauri-apps/api/core", () => ({
+    convertFileSrc: (path: string, protocol: string) => `${protocol}://localhost/${encodeURIComponent(path)}`,
 }));
 
-import { processHtmlDoc } from "./columns";
+import { processHtmlDoc, clearImageSizeCache } from "./columns";
 
 function chapter(body: string): string {
     return `<html><head><title>T</title></head><body>${body}</body></html>`;
@@ -70,10 +71,37 @@ describe("processHtmlDoc", () => {
         expect(el.textContent).toContain("text");
     });
 
-    it("inlines EPUB images as data URIs and drops unresolved local images", async () => {
-        const el = await sanitized('<img id="ok" src="images/pic.png"><img id="missing" src="images/none.png">');
-        expect(el.querySelector("#ok")?.getAttribute("src")).toBe("data:image/*;base64,UElDREFUQQ==");
-        expect(el.querySelector("#missing")?.getAttribute("src")).toBeNull();
+    it("serves book images over epub:// with their size set up front", async () => {
+        const el = await sanitized('<img id="ok" src="images/pic.png"><img id="unknown" src="../img/x.svg">');
+        const ok = el.querySelector<HTMLImageElement>("#ok")!;
+        expect(ok.getAttribute("src")).toBe("epub://localhost/images%2Fpic.png");
+        expect(ok.style.width).toBe("640px");
+        const unknown = el.querySelector<HTMLImageElement>("#unknown")!;
+        expect(unknown.getAttribute("src")).toBe("epub://localhost/..%2Fimg%2Fx.svg");
+        expect(unknown.style.width).toBe("");
+    });
+
+    it("uses a blank placeholder for measuring, keeping the size, so nothing is downloaded", async () => {
+        const { html } = await processHtmlDoc(chapter('<img id="ok" src="images/pic.png"><img id="unknown" src="x.svg">'), { forMeasure: true });
+        const el = document.createElement("div");
+        el.innerHTML = html;
+        const ok = el.querySelector<HTMLImageElement>("#ok")!;
+        expect(ok.getAttribute("src")).toMatch(/^data:image\/gif;base64,/);
+        expect(ok.style.width).toBe("640px");
+        // Unknown size: the real image is needed to lay the page out.
+        expect(el.querySelector("#unknown")?.getAttribute("src")).toBe("epub://localhost/x.svg");
+    });
+
+    it("looks up each image size once per book", async () => {
+        clearImageSizeCache();
+        getImageSizes.mockClear();
+        await processHtmlDoc(chapter('<img src="images/pic.png"><img src="images/pic.png">'));
+        await processHtmlDoc(chapter('<img src="images/pic.png">'));
+        expect(getImageSizes).toHaveBeenCalledTimes(1);
+        expect(getImageSizes).toHaveBeenCalledWith(["images/pic.png"]);
+        clearImageSizeCache();
+        await processHtmlDoc(chapter('<img src="images/pic.png">'));
+        expect(getImageSizes).toHaveBeenCalledTimes(2);
     });
 
     it("blocks remote resources", async () => {

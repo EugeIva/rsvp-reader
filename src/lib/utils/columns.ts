@@ -1,12 +1,20 @@
 import DOMPurify from "dompurify";
-import { getChapterResource } from "$lib/commands";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { getImageSizes } from "$lib/commands";
 import type { ReaderMetrics } from "$lib/stores";
+import "$lib/epubFlow.css";
 
-const FONT_STACK = 'Georgia, "Times New Roman", serif';
+// Part of every saved page-count cache key; bump it when a change to layout
+// or measuring could change page counts, so stale caches are ignored.
+const LAYOUT_VERSION = 2;
 
 // Shown instead of a chapter that fails to process; raw EPUB HTML is never
 // rendered unsanitized.
 const FAILED_CHAPTER_HTML = "<p>This chapter could not be displayed.</p>";
+
+// 1x1 transparent GIF: stands in for a book image of known size when only the
+// layout matters (offscreen page counting), so nothing is downloaded.
+const BLANK_IMAGE = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
 // DOMPurify's allowlist already drops scripts, iframes, objects, embeds and
 // on* handlers. EPUB stylesheets would fight the column layout, and forms or
@@ -35,6 +43,30 @@ DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
     }
 });
 
+/** Cache key for page counts measured at these metrics. */
+export function layoutKey(metrics: ReaderMetrics): string {
+    return `${LAYOUT_VERSION}|${metrics.pageW}x${metrics.pageH}|${metrics.fontSizeRem}`;
+}
+
+// Image sizes by the src used in the chapter HTML (the open book only).
+const imageSizes = new Map<string, [number, number] | null>();
+
+/** Forget image sizes from the previous book. */
+export function clearImageSizeCache(): void {
+    imageSizes.clear();
+}
+
+async function lookupImageSizes(srcs: string[]): Promise<void> {
+    const missing = srcs.filter((s) => !imageSizes.has(s));
+    if (!missing.length) return;
+    try {
+        const sizes = await getImageSizes(missing);
+        missing.forEach((s, i) => imageSizes.set(s, sizes[i] ?? null));
+    } catch {
+        missing.forEach((s) => imageSizes.set(s, null));
+    }
+}
+
 function setColumnStyle(el: HTMLElement, prop: string, value: string) {
     el.style.setProperty(prop, value);
     const webkit = prop.replace(/^column/, "-webkit-column");
@@ -42,62 +74,96 @@ function setColumnStyle(el: HTMLElement, prop: string, value: string) {
 }
 
 /**
- * Parse and sanitize chapter HTML: inline base64 images from the EPUB, then
- * run it through DOMPurify with remote resources blocked. Returns the body
- * innerHTML for rendering, or a placeholder message if processing fails.
+ * Parse and sanitize chapter HTML with DOMPurify (remote resources blocked),
+ * then point the book's images at the epub:// scheme. Images whose size is
+ * known get an explicit width and aspect ratio, so the page layout is final
+ * before they load. With `forMeasure`, those images use a blank placeholder
+ * instead, so measuring downloads nothing. Returns the body innerHTML, or a
+ * placeholder message if processing fails.
  */
-export async function processHtmlDoc(raw: string): Promise<{ html: string; error: boolean }> {
+export async function processHtmlDoc(
+    raw: string,
+    opts: { forMeasure?: boolean } = {}
+): Promise<{ html: string; error: boolean }> {
     try {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(raw, "text/html");
+        const doc = new DOMParser().parseFromString(raw, "text/html");
+        const frag = DOMPurify.sanitize(doc.body.innerHTML, { ...SANITIZE_CONFIG, RETURN_DOM_FRAGMENT: true });
 
-        const imgs = [...doc.querySelectorAll("img")];
-        const uniqueSrcs = [
-            ...new Set(
-                imgs
-                    .map((i) => i.getAttribute("src"))
-                    .filter(
-                        (s): s is string =>
-                            !!s &&
-                            !s.startsWith("data:") &&
-                            !s.startsWith("http://") &&
-                            !s.startsWith("https://")
-                    )
-            ),
-        ];
-
-        const results = await Promise.allSettled(
-            uniqueSrcs.map(async (src) => {
-                const b64 = await getChapterResource(src);
-                return { src, b64 };
-            })
-        );
-        const resolved = new Map<string, string>();
-        for (const r of results) {
-            if (r.status === "fulfilled") resolved.set(r.value.src, r.value.b64);
-        }
-
-for (const img of imgs) {
+        // Remote sources were removed by the sanitizer; data: URIs stay as they are.
+        const isBookImage = (src: string | null): src is string => !!src && !src.startsWith("data:");
+        const imgs = [...frag.querySelectorAll("img")];
+        await lookupImageSizes([...new Set(imgs.map((i) => i.getAttribute("src")).filter(isBookImage))]);
+        for (const img of imgs) {
             const src = img.getAttribute("src");
-            if (src && resolved.has(src)) {
-                img.setAttribute("src", `data:image/*;base64,${resolved.get(src)!}`);
-            } else if (src && !src.startsWith("data:") && !src.startsWith("http")) {
-                img.removeAttribute("src");
+            if (!isBookImage(src)) continue;
+            const size = imageSizes.get(src);
+            if (size) {
+                img.style.width = `${size[0]}px`;
+                img.style.setProperty("aspect-ratio", `${size[0]} / ${size[1]}`);
             }
+            img.setAttribute("src", opts.forMeasure && size ? BLANK_IMAGE : convertFileSrc(src, "epub"));
         }
 
-        for (const link of doc.querySelectorAll("a")) {
+        for (const link of frag.querySelectorAll("a")) {
             const href = link.getAttribute("href");
             if (href?.startsWith("http://") || href?.startsWith("https://")) {
                 link.setAttribute("rel", "noopener noreferrer");
             }
         }
 
-        const html = DOMPurify.sanitize(doc.body.innerHTML, SANITIZE_CONFIG);
-        return { html, error: false };
+        const holder = document.createElement("div");
+        holder.appendChild(frag);
+        return { html: holder.innerHTML, error: false };
     } catch {
         return { html: FAILED_CHAPTER_HTML, error: true };
     }
+}
+
+const IMAGE_WRAPPER_CSS =
+    "display:inline-block;width:100%;break-inside:avoid!important;page-break-inside:avoid!important;overflow:hidden;vertical-align:top;";
+
+/**
+ * Wrap every `<img>` in a flow inside a `div` with `break-inside:avoid` and
+ * `display:inline-block` — the only reliable way to prevent image
+ * fragmentation in Safari / WKWebView multicol. Must run before measuring,
+ * on the visible page and on offscreen flows alike, since it changes layout.
+ * Returns the number of images wrapped.
+ */
+export function wrapImages(flow: HTMLElement): number {
+    let wrapped = 0;
+    for (const img of flow.querySelectorAll("img")) {
+        if (img.parentElement?.style.cssText.includes("inline-block")) continue;
+        const container = img.closest("div, figure, p") ?? img.parentElement ?? flow;
+        const nextBlock = container?.nextElementSibling;
+        const isCaption = nextBlock && nextBlock.tagName.toLowerCase() === "p" &&
+            ((nextBlock.textContent?.length ?? 0) < 120 ||
+             /^(Рис\.|Fig\.|Figure|Таблица|Table)/.test(nextBlock.textContent?.trim() ?? ""));
+
+        const w = document.createElement("div");
+        w.style.cssText = IMAGE_WRAPPER_CSS;
+        if (isCaption) {
+            container.parentNode?.insertBefore(w, container);
+            w.appendChild(container);
+            w.appendChild(nextBlock);
+        } else {
+            let target: Element = img;
+            const p = img.parentElement;
+            if (p && ["div", "figure", "p", "td", "li"].includes(p.tagName.toLowerCase())) {
+                target = p;
+            } else if (p) {
+                target = p.closest("div, figure, p, body") ?? img;
+            }
+            target.parentNode?.insertBefore(w, target);
+            w.appendChild(target);
+        }
+        wrapped++;
+    }
+    return wrapped;
+}
+
+/** Images whose size wasn't known up front; layout changes when they load. */
+export function unsizedImages(flow: HTMLElement): HTMLImageElement[] {
+    return [...flow.querySelectorAll("img")].filter((i) => !i.style.width && !i.complete);
 }
 
 /**
@@ -226,67 +292,67 @@ export function extractColumnTexts(el: HTMLElement, pageW: number, pageCount: nu
 }
 
 /**
- * Columnize a chapter offscreen (same metrics/font as the reader) and return
- * the per-column text snippets plus page count. Used by RSVP to advance into
- * chapters that were never rendered in page mode.
+ * Lay out a chapter in an offscreen flow that matches the visible page
+ * (same class, styles, font size and image wrapping), call `measure` on it,
+ * then remove it. Images of unknown size are given up to 3 s to load first.
  */
-export async function columnizeOffscreen(
+async function withOffscreenFlow<T>(
     rawHtml: string,
     metrics: ReaderMetrics,
-    fontSizeRem: number
-): Promise<{ texts: string[]; pageCount: number }> {
-    const { pageW, pageH } = metrics;
-    if (pageW <= 0 || pageH <= 0) return { texts: [], pageCount: 1 };
-    const { html } = await processHtmlDoc(rawHtml);
+    measure: (flow: HTMLElement) => T
+): Promise<T> {
+    const { html } = await processHtmlDoc(rawHtml, { forMeasure: true });
 
     const host = document.createElement("div");
     host.style.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none;";
     const flow = document.createElement("div");
-    flow.style.fontFamily = FONT_STACK;
-    flow.style.fontSize = `${fontSizeRem}rem`;
+    flow.className = "epub-flow";
+    flow.style.fontSize = `${metrics.fontSizeRem}rem`;
     flow.style.lineHeight = "1.5";
-    flow.style.color = "#e0e0e0";
+    flow.style.setProperty("--page-h", `${metrics.pageH}px`);
     flow.innerHTML = html;
     host.appendChild(flow);
     document.body.appendChild(host);
 
     try {
-        const pageCount = paginateFlow(flow, pageW, pageH);
-        const texts = extractColumnTexts(flow, pageW, pageCount);
-        return { texts, pageCount };
+        wrapImages(flow);
+        const pending = unsizedImages(flow);
+        if (pending.length) {
+            await Promise.race([
+                Promise.all(pending.map((i) => i.decode().catch(() => {}))),
+                new Promise((r) => setTimeout(r, 3000)),
+            ]);
+        }
+        return measure(flow);
     } finally {
         document.body.removeChild(host);
     }
 }
 
 /**
- * Columnize a chapter offscreen and return ONLY its page count. Cheaper than
- * `columnizeOffscreen` (no per-column text extraction) and used to eagerly
- * measure every chapter so the book-wide page total is accurate up front.
+ * Columnize a chapter offscreen (same layout as the reader) and return the
+ * per-column text snippets plus page count. Used by RSVP to advance into
+ * chapters that were never rendered in page mode.
  */
-export async function measureOffscreenPages(
+export async function columnizeOffscreen(
     rawHtml: string,
-    metrics: ReaderMetrics,
-    fontSizeRem: number
-): Promise<number> {
+    metrics: ReaderMetrics
+): Promise<{ texts: string[]; pageCount: number }> {
+    const { pageW, pageH } = metrics;
+    if (pageW <= 0 || pageH <= 0) return { texts: [], pageCount: 1 };
+    return withOffscreenFlow(rawHtml, metrics, (flow) => {
+        const pageCount = paginateFlow(flow, pageW, pageH);
+        return { texts: extractColumnTexts(flow, pageW, pageCount), pageCount };
+    });
+}
+
+/**
+ * Columnize a chapter offscreen and return ONLY its page count. Cheaper than
+ * `columnizeOffscreen` (no per-column text extraction) and used to measure
+ * every chapter in the background so the book-wide page total is accurate.
+ */
+export async function measureOffscreenPages(rawHtml: string, metrics: ReaderMetrics): Promise<number> {
     const { pageW, pageH } = metrics;
     if (pageW <= 0 || pageH <= 0) return 1;
-    const { html } = await processHtmlDoc(rawHtml);
-
-    const host = document.createElement("div");
-    host.style.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none;";
-    const flow = document.createElement("div");
-    flow.style.fontFamily = FONT_STACK;
-    flow.style.fontSize = `${fontSizeRem}rem`;
-    flow.style.lineHeight = "1.5";
-    flow.style.color = "#e0e0e0";
-    flow.innerHTML = html;
-    host.appendChild(flow);
-    document.body.appendChild(host);
-
-    try {
-        return paginateFlow(flow, pageW, pageH);
-    } finally {
-        document.body.removeChild(host);
-    }
+    return withOffscreenFlow(rawHtml, metrics, (flow) => paginateFlow(flow, pageW, pageH));
 }

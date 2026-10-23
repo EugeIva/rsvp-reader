@@ -1,8 +1,9 @@
 <script lang="ts">
     import {
-        book, currentPage, chapterPageCounts, readerTotalPages, chapterHtmls,
+        book, currentPage, chapterPageCounts, readerTotalPages, chapterHtmls, chapterHtmlsLoaded,
         rsvpActive, rsvpWordOffset, rsvpConfig,
-        rsvpColumnTexts, rsvpColumnChapter, readerMetrics, fontSize,
+        rsvpColumnTexts, rsvpColumnChapter, readerMetrics, pageStart,
+        updatePageCounts, whenChapterHtmlsLoaded,
     } from "$lib/stores";
     import { tokenize, RsvpEngine } from "$lib/utils/rsvp";
     import type { RsvpToken } from "$lib/utils/rsvp";
@@ -38,22 +39,16 @@
         if ($rsvpColumnChapter === chapter && column < $rsvpColumnTexts.length) {
             return $rsvpColumnTexts[column] ?? "";
         }
-        const raw = $chapterHtmls[chapter];
-        if (!raw) return "";
         loadingColumn = true;
         try {
-            const { texts, pageCount } = await columnizeOffscreen(
-                raw,
-                { pageW: $readerMetrics.pageW, pageH: $readerMetrics.pageH, fontSizeRem: $readerMetrics.fontSizeRem },
-                $fontSize
-            );
+            // Chapters are still being fetched right after a book opens.
+            if (!$chapterHtmls[chapter] && !$chapterHtmlsLoaded) await whenChapterHtmlsLoaded();
+            const raw = $chapterHtmls[chapter];
+            if (!raw) return "";
+            const { texts, pageCount } = await columnizeOffscreen(raw, $readerMetrics);
             rsvpColumnTexts.set(texts);
             rsvpColumnChapter.set(chapter);
-            chapterPageCounts.update((cs) => {
-                const n = [...cs];
-                n[chapter] = pageCount;
-                return n;
-            });
+            updatePageCounts((cs) => (cs[chapter] === pageCount ? cs : cs.map((c, i) => (i === chapter ? pageCount : c))));
             return texts[column] ?? "";
         } finally {
             loadingColumn = false;
@@ -84,6 +79,12 @@
             }
             return;
         }
+
+        // Saved reading position: first word of this page within the chapter.
+        const startWord = $rsvpColumnTexts
+            .slice(0, column)
+            .reduce((n, t) => n + (t ? t.split(" ").length : 0), 0);
+        pageStart.set({ chapter, word: startWord });
 
         // Load the page's word list before playback starts, so the first
         // words already get complexity timing.

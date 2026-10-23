@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { PageCountCache, WordAnchor } from "$lib/stores";
 
 export interface SavedState {
     page: number;
@@ -14,6 +15,25 @@ export interface SavedState {
     complexityWeight: number;
     timerMinutes: number;
     timerSeconds: number;
+    // Reading position independent of layout: the word being read (page
+    // start + rsvpWordOffset). Absent in states saved by older versions,
+    // which only have `page`.
+    anchor?: WordAnchor;
+    // Page counts for the layout the book was last fully measured at.
+    pageCounts?: PageCountCache;
+}
+
+const isCount = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0;
+
+function parseAnchor(v: unknown): WordAnchor | undefined {
+    const a = v as Record<string, unknown> | null;
+    return a && isCount(a.chapter) && isCount(a.word) ? { chapter: a.chapter, word: a.word } : undefined;
+}
+
+function parsePageCounts(v: unknown): PageCountCache | undefined {
+    const c = v as Record<string, unknown> | null;
+    if (!c || typeof c.key !== "string" || !Array.isArray(c.counts)) return undefined;
+    return c.counts.every((n) => isCount(n) && n > 0) ? { key: c.key, counts: c.counts as number[] } : undefined;
 }
 
 export async function saveState(bookPath: string, state: SavedState): Promise<void> {
@@ -55,6 +75,8 @@ export async function loadState(bookPath: string): Promise<SavedState | null> {
             complexityWeight: (raw.complexityWeight ?? raw.complexity_weight ?? 0.5) as number,
             timerMinutes: (raw.timerMinutes ?? 0) as number,
             timerSeconds: (raw.timerSeconds ?? 0) as number,
+            anchor: parseAnchor(raw.anchor),
+            pageCounts: parsePageCounts(raw.pageCounts),
         };
         console.log("persist:loadState parsed", state);
         return state;

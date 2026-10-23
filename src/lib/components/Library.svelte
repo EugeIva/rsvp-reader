@@ -1,8 +1,6 @@
 <script lang="ts">
     import { open } from "@tauri-apps/plugin-dialog";
-    import { openEpub } from "$lib/commands";
-    import { book, currentPage, rsvpWordOffset, fontSize, rsvpConfig } from "$lib/stores";
-    import { loadState, saveState } from "$lib/utils/persistence";
+    import { openBook, lastOpenedPath } from "$lib/utils/openBook";
 
     let spinner = $state(false);
     let errMsg = $state<string | null>(null);
@@ -15,69 +13,16 @@
     });
 
     async function autoOpen() {
-        let lastPath: string | null = null;
-        try { lastPath = localStorage.getItem("rsvp-reader:lastPath"); } catch {}
+        const lastPath = lastOpenedPath();
         if (!lastPath) return;
         spinner = true;
         try {
-            const meta = await openEpub(lastPath);
-            book.set({
-                title: meta.title,
-                author: meta.author,
-                spineCount: meta.spine_count,
-                filePath: lastPath,
-                chapterWordCounts: meta.chapter_word_counts,
-            });
-            currentPage.set(0);
-            rsvpWordOffset.set(0);
-            // non-blocking state restore
-            restoreState(lastPath);
+            await openBook(lastPath);
         } catch {
             // file missing or corrupted — stay on welcome screen
         } finally {
             spinner = false;
         }
-    }
-
-    async function restoreState(path: string) {
-        try {
-            const saved = await loadState(path);
-            if (!saved) {
-                console.log("persist:restoreState no saved state");
-                return;
-            }
-            console.log("persist:restoreState from file", { page: saved.page, font: saved.fontSize });
-
-            currentPage.set(saved.page);
-            rsvpWordOffset.set(saved.rsvpWordOffset);
-            fontSize.set(saved.fontSize);
-            rsvpConfig.set({
-                wpm: saved.wpm,
-                longWordDelay: saved.longWordDelay,
-                longWordMultiplier: saved.longWordMultiplier,
-                punctuationPause: saved.punctuationPause,
-                punctuationDelayMs: saved.punctuationDelayMs,
-                longWordThreshold: 7,
-                complexityWeight: saved.complexityWeight,
-                timerMinutes: saved.timerMinutes,
-                timerSeconds: saved.timerSeconds,
-            });
-            await saveState(path, {
-                page: saved.page,
-                rsvpWordOffset: saved.rsvpWordOffset,
-                fontSize: saved.fontSize,
-                windowWidth: saved.windowWidth,
-                windowHeight: saved.windowHeight,
-                wpm: saved.wpm,
-                longWordDelay: saved.longWordDelay,
-                longWordMultiplier: saved.longWordMultiplier,
-                punctuationPause: saved.punctuationPause,
-                punctuationDelayMs: saved.punctuationDelayMs,
-                complexityWeight: saved.complexityWeight,
-                timerMinutes: saved.timerMinutes,
-                timerSeconds: saved.timerSeconds,
-            });
-        } catch { /* state restore is best-effort */ }
     }
 
     async function handleOpen() {
@@ -90,18 +35,7 @@
         spinner = true;
         errMsg = null;
         try {
-            const meta = await openEpub(selected);
-            book.set({
-                title: meta.title,
-                author: meta.author,
-                spineCount: meta.spine_count,
-                filePath: selected,
-                chapterWordCounts: meta.chapter_word_counts,
-            });
-            currentPage.set(0);
-            rsvpWordOffset.set(0);
-            try { localStorage.setItem("rsvp-reader:lastPath", selected); } catch {}
-            restoreState(selected);
+            await openBook(selected);
         } catch (e) {
             errMsg = String(e);
         } finally {

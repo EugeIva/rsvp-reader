@@ -1,25 +1,33 @@
 <script context="module">
     // Module-scope guard: survives component unmount/remount (page<->RSVP
-    // switching) so we don't reset to page 1 or re-fetch the book.
-    let lastLoadedBookPath: string | null = null;
+    // switching) so we don't reset to page 1 or re-fetch the book. Holds the
+    // book object (not its path), so reopening the same file still rebuilds.
+    let lastLoadedBook: unknown = null;
 </script>
 
 <script lang="ts">
     import { open } from "@tauri-apps/plugin-dialog";
-    import { openEpub, getChapterHtml, resolveChapterLink } from "$lib/commands";
+    import { getChapterHtml, resolveChapterLink } from "$lib/commands";
     import {
-        book, currentPage, chapterHtmls, chapterPageCounts, readerTotalPages,
-        fontSize, rsvpActive, rsvpWordOffset, rsvpConfig,
+        book, currentPage, chapterHtmls, chapterHtmlsLoaded, chapterPageCounts, readerTotalPages,
+        fontSize, rsvpActive, rsvpWordOffset,
         rsvpColumnTexts, rsvpColumnChapter, readerMetrics,
+        pageStart, pendingWordAnchor, legacyPage, pageCountCache,
+        chapterStartPage, updatePageCounts, whenChapterHtmlsLoaded,
     } from "$lib/stores";
-    import { loadState, saveState } from "$lib/utils/persistence";
+    import type { BookState, ReaderMetrics } from "$lib/stores";
     import { dbg } from "$lib/utils/debug";
     import {
-        processHtmlDoc, paginateFlow, extractColumnWords,
-        measureOffscreenPages,
+        processHtmlDoc, paginateFlow, extractColumnWords, measureOffscreenPages,
+        wrapImages, unsizedImages, layoutKey,
     } from "$lib/utils/columns";
+    import { openBook } from "$lib/utils/openBook";
     import { tick } from "svelte";
     import { openUrl } from "@tauri-apps/plugin-opener";
+
+    // After the chapter being read, the rest are fetched this many at a time.
+    const HTML_BATCH = 4;
+    const CHAPTER_LOAD_FAILED = "<p>This chapter could not be loaded.</p>";
 
     let processedHtml = $state("");
     let processedChapter = $state(-1);
@@ -31,9 +39,15 @@
     let lineHeight = $state(1.5);
     let columnTextsByChapter = $state<Map<number, string[]>>(new Map());
     let columnWordsCache = $state<string[][]>([]);
-    let premeasuring = $state(false);
+    // Chapter that columnWordsCache was measured for (-1 before the first measure).
+    let measuredChapter = -1;
+    // True while every chapter's page count is known for the current layout.
     let premeasureDone = $state(false);
-    let premeasureStarted = $state(false);
+    let premeasureStarted = false;
+    // Layout key of the running or finished background measure.
+    let premeasureKey = "";
+    // Incremented to cancel a running background measure.
+    let premeasureGen = 0;
     let rebuildTimer: ReturnType<typeof setTimeout> | null = null;
     let rebuildRunning = false;
     let premeasureTimer: ReturnType<typeof setTimeout> | null = null;
@@ -64,6 +78,27 @@
         return containerEl?.querySelector(".epub-flow") as HTMLElement | null;
     }
 
+    function metricsNow(): ReaderMetrics {
+        return { pageW: containerWidth, pageH: effectiveHeight, fontSizeRem: $fontSize };
+    }
+
+    /** Number of words on the columns before `col`. */
+    function wordsBefore(cols: string[][], col: number): number {
+        let n = 0;
+        for (let c = 0; c < col && c < cols.length; c++) n += cols[c].length;
+        return n;
+    }
+
+    /** Column that word number `word` of the chapter is on. */
+    function columnOfWord(cols: string[][], word: number): number {
+        let n = 0;
+        for (let c = 0; c < cols.length; c++) {
+            n += cols[c].length;
+            if (word < n) return c;
+        }
+        return Math.max(0, cols.length - 1);
+    }
+
     $effect(() => {
         const node = containerEl;
         if (!node) return;
@@ -92,41 +127,80 @@
         scheduleRelayout();
     });
 
+    // Stop background work when page mode unmounts (switching to RSVP).
+    $effect(() => () => {
+        premeasureGen++;
+        if (premeasureTimer) clearTimeout(premeasureTimer);
+        if (rebuildTimer) clearTimeout(rebuildTimer);
+    });
+
     let bootLogged = false;
 
     $effect(() => {
         const b = $book;
         if (!b) return;
         if (!bootLogged) { bootLogged = true; dbg("Reader: mounted, book=" + b.title); }
-        // Rebuild only when a different book was loaded. The guard lives in
-        // module scope so switching page<->RSVP (which unmounts/remounts this
-        // component) does NOT reset to page 1 or re-fetch the book.
-        if (lastLoadedBookPath === b.filePath) return;
-        lastLoadedBookPath = b.filePath;
-        currentPage.set(0);
-        rsvpWordOffset.set(0);
-        rebuildBook();
+        // Rebuild only when a book was (re)opened. The guard lives in module
+        // scope so switching page<->RSVP (which unmounts/remounts this
+        // component) does NOT reset the position or re-fetch the book.
+        if (lastLoadedBook === b) return;
+        lastLoadedBook = b;
+        rebuildBook(b);
     });
 
-    async function rebuildBook() {
-        const b = $book;
-        if (!b) return;
-        try {
-            const htmls: string[] = [];
-            for (let ci = 0; ci < b.spineCount; ci++) {
-                htmls[ci] = await getChapterHtml(ci);
-            }
+    /** Saved page counts, if they were measured at the current layout. */
+    function cachedCounts(n: number): number[] | null {
+        const cache = $pageCountCache;
+        if (!cache || cache.counts.length !== n || containerWidth <= 0 || effectiveHeight <= 0) return null;
+        return cache.key === layoutKey(metricsNow()) ? cache.counts : null;
+    }
 
-            chapterHtmls.set(htmls);
-            processedChapter = -1;
-            processedHtml = "";
-            columnTextsByChapter = new Map();
-            premeasureStarted = false;
-            premeasureDone = false;
-            chapterPageCounts.set(b.chapterWordCounts.map(() => 1));
-        } catch (e) {
-            dbg("rebuild: error", String(e));
+    async function rebuildBook(b: BookState) {
+        const n = b.spineCount;
+        processedChapter = -1;
+        processedHtml = "";
+        measuredChapter = -1;
+        columnTextsByChapter = new Map();
+        columnWordsCache = [];
+        premeasureGen++;
+        premeasureStarted = false;
+        premeasureKey = "";
+        const cached = cachedCounts(n);
+        premeasureDone = cached !== null;
+        chapterPageCounts.set(cached ? [...cached] : Array(n).fill(1));
+        chapterHtmls.set(Array(n).fill(""));
+        chapterHtmlsLoaded.set(false);
+
+        // Start on the saved chapter; the exact page is found once it's laid out.
+        const anchor = $pendingWordAnchor;
+        const first = anchor && anchor.chapter < n ? anchor.chapter : 0;
+        currentPage.set(chapterStartPage($chapterPageCounts, first));
+        if (cached) applyLegacyPage();
+        await loadChapterHtmls(b, first);
+    }
+
+    /** Fetch chapter `first` (the one shown), then the rest in parallel batches. */
+    async function loadChapterHtmls(b: BookState, first: number) {
+        const fetchHtml = (ci: number) => getChapterHtml(ci).catch((e) => {
+            dbg(`chapter ${ci}: load failed`, String(e));
+            return CHAPTER_LOAD_FAILED;
+        });
+        const put = (indices: number[], htmls: string[]): boolean => {
+            if (lastLoadedBook !== b) return false; // another book was opened meanwhile
+            chapterHtmls.update((hs) => {
+                const next = [...hs];
+                indices.forEach((ci, k) => (next[ci] = htmls[k]));
+                return next;
+            });
+            return true;
+        };
+        if (!put([first], [await fetchHtml(first)])) return;
+        const rest = [...Array(b.spineCount).keys()].filter((ci) => ci !== first);
+        for (let i = 0; i < rest.length; i += HTML_BATCH) {
+            const batch = rest.slice(i, i + HTML_BATCH);
+            if (!put(batch, await Promise.all(batch.map(fetchHtml)))) return;
         }
+        chapterHtmlsLoaded.set(true);
     }
 
     $effect(() => {
@@ -148,10 +222,15 @@
         const ci = processedChapter;
         if (!h || ci < 0) return;
         tick().then(() => {
-            if (ci === currentChapter) {
-                columnizeCurrent();
-                wrapImagesInDom();
-            }
+            if (ci !== currentChapter) return;
+            const el = flowEl();
+            if (!el) return;
+            // Wrap before measuring: wrapping changes the layout.
+            const wrapped = wrapImages(el);
+            if (wrapped > 0) dbg(`wrapImages: ch${ci} wrapped ${wrapped} images`);
+            // Images whose size wasn't known up front reflow the page when they load.
+            for (const img of unsizedImages(el)) img.addEventListener("load", () => scheduleRelayout(), { once: true });
+            columnizeCurrent();
         });
     });
 
@@ -180,47 +259,64 @@
         const el = flowEl();
         if (!el) return;
         if (el.scrollHeight <= 0) return;
-        const prevCount = $chapterPageCounts[currentChapter] || 1;
+        const ci = currentChapter;
+        // Page boundaries move on a reflow; keep the word being read on screen.
+        if (measuredChapter === ci && !$pendingWordAnchor) {
+            pendingWordAnchor.set({ chapter: ci, word: wordsBefore(columnWordsCache, colIndexInChapter) + $rsvpWordOffset });
+        }
+        const prevCount = $chapterPageCounts[ci] || 1;
         const count = paginateFlow(el, containerWidth, effectiveHeight);
 
+        // Scale the other chapters as an estimate until they are re-measured.
         const ratio = count / prevCount;
-        const counts = $chapterPageCounts.map((c, i) =>
-            i === currentChapter ? count : Math.max(1, Math.round(c * ratio))
-        );
-        chapterPageCounts.set(counts);
-        afterMeasure(el, count);
-        // After a resize/font reflow, re-measure every chapter (debounced) so
+        updatePageCounts((cs) => cs.map((c, i) => (i === ci ? count : Math.max(1, Math.round(c * ratio)))));
+        afterMeasure(el, ci, count);
+        // After a resize/font change, re-measure every chapter (debounced) so
         // the global total stays accurate instead of only the current chapter.
-        schedulePremesure(1000);
+        if (layoutKey(metricsNow()) !== premeasureKey) {
+            premeasureDone = false;
+            schedulePremesure(1000);
+        }
     }
 
     function columnizeCurrent() {
         const el = flowEl();
-        if (currentChapter < 0 || !el || containerWidth <= 0 || effectiveHeight <= 0) return;
+        const ci = currentChapter;
+        if (ci < 0 || !el || containerWidth <= 0 || effectiveHeight <= 0) return;
         if (el.scrollHeight <= 0) return;
         const count = paginateFlow(el, containerWidth, effectiveHeight);
-        const counts = [...$chapterPageCounts];
-        counts[currentChapter] = count;
-        chapterPageCounts.set(counts);
-        afterMeasure(el, count);
+        updatePageCounts((cs) => (cs[ci] === count ? cs : cs.map((c, i) => (i === ci ? count : c))));
+        afterMeasure(el, ci, count);
     }
 
-    function afterMeasure(el: HTMLElement, count: number) {
-        dbg(`measure: ch${currentChapter} pages=${count} total=${$readerTotalPages}`);
+    function afterMeasure(el: HTMLElement, ci: number, count: number) {
         // Single source of truth for page-mode word counts AND RSVP column
         // text, so both modes report the same per-page word count.
         columnWordsCache = extractColumnWords(el, containerWidth, count);
-        dbg(`measure: ch${currentChapter} pages=${count} total=${$readerTotalPages} words=${columnWordsCache[colIndexInChapter]?.length ?? 0}`);
+        measuredChapter = ci;
+        dbg(`measure: ch${ci} pages=${count} total=${$readerTotalPages}`);
         columnTextsByChapter = new Map(columnTextsByChapter).set(
-            currentChapter,
+            ci,
             columnWordsCache.map((a) => a.join(" "))
         );
-        readerMetrics.set({ pageW: containerWidth, pageH: effectiveHeight, fontSizeRem: $fontSize });
+        readerMetrics.set(metricsNow());
+
+        // Bring a saved (or pre-reflow) position on screen now that the
+        // chapter's page boundaries are known.
+        const anchor = $pendingWordAnchor;
+        if (anchor && anchor.chapter === ci) {
+            pendingWordAnchor.set(null);
+            const col = columnOfWord(columnWordsCache, anchor.word);
+            currentPage.set(chapterStartPage($chapterPageCounts, ci) + col);
+            rsvpWordOffset.set(Math.max(0, anchor.word - wordsBefore(columnWordsCache, col)));
+        }
         const total = $readerTotalPages;
         if ($currentPage >= total) currentPage.set(Math.max(0, total - 1));
+        // Keep the saved counts in step if this chapter measured differently.
+        if (premeasureDone) saveCountsCache(premeasureKey || layoutKey(metricsNow()));
         positionCurrent();
-        // Once the UI is laid out (we have real dimensions), kick off the
-        // background premeasure so the global page count reflects every chapter.
+        // Once the UI is laid out (we have real dimensions), start measuring
+        // the other chapters in the background (or take saved counts).
         if (!premeasureStarted) {
             premeasureStarted = true;
             schedulePremesure(0);
@@ -232,33 +328,69 @@
         premeasureTimer = setTimeout(() => { premeasureAll(); }, delay);
     }
 
+    function saveCountsCache(key: string) {
+        pageCountCache.set({ key, counts: [...$chapterPageCounts] });
+    }
+
+    /** Apply a saved position from an older version (a global page number). */
+    function applyLegacyPage() {
+        const page = $legacyPage;
+        if (page === null) return;
+        legacyPage.set(null);
+        currentPage.set(Math.min(page, Math.max(0, $readerTotalPages - 1)));
+    }
+
+    function finishPremeasure(key: string) {
+        premeasureDone = true;
+        saveCountsCache(key);
+        applyLegacyPage();
+    }
+
+    /**
+     * Measure every chapter's page count offscreen. Takes the saved counts
+     * instead when they were measured at this layout. Starts with the
+     * chapters nearest the one being read, yields between chapters, and is
+     * cancelled by a newer run (resize, font change) or by unmounting.
+     */
     async function premeasureAll() {
-        if (premeasuring) return;
+        const gen = ++premeasureGen;
         const b = $book;
         if (containerWidth <= 0 || effectiveHeight <= 0 || !b) return;
-        const metrics = { pageW: containerWidth, pageH: effectiveHeight, fontSizeRem: $fontSize };
-        premeasuring = true;
+        const metrics = metricsNow();
+        const key = layoutKey(metrics);
+        premeasureKey = key;
+
+        const cache = $pageCountCache;
+        if (cache && cache.key === key && cache.counts.length === b.spineCount) {
+            const onScreen = measuredChapter;
+            updatePageCounts((cs) => cache.counts.map((c, i) => (i === onScreen ? cs[i] : c)));
+            finishPremeasure(key);
+            dbg(`premeasure: cached total=${$readerTotalPages}`);
+            return;
+        }
+
         premeasureDone = false;
         try {
-            for (let ci = 0; ci < b.spineCount; ci++) {
-                // The rendered chapter is already measured on-screen.
-                if (ci === processedChapter) continue;
+            await whenChapterHtmlsLoaded();
+            const center = currentChapter;
+            const order = [...Array(b.spineCount).keys()]
+                .sort((x, y) => Math.abs(x - center) - Math.abs(y - center));
+            for (const ci of order) {
+                // Yield between chapters so input and rendering stay responsive.
+                await new Promise((r) => setTimeout(r, 0));
+                if (gen !== premeasureGen) return;
+                // The chapter on screen is measured there.
+                if (ci === measuredChapter) continue;
                 const raw = $chapterHtmls[ci];
                 if (!raw) continue;
-                const pages = await measureOffscreenPages(raw, metrics, $fontSize);
-                chapterPageCounts.update((cs) => {
-                    if (cs[ci] === pages) return cs;
-                    const n = [...cs];
-                    n[ci] = pages;
-                    return n;
-                });
+                const pages = await measureOffscreenPages(raw, metrics);
+                if (gen !== premeasureGen) return;
+                updatePageCounts((cs) => (cs[ci] === pages ? cs : cs.map((c, i) => (i === ci ? pages : c))));
             }
-            premeasureDone = true;
+            finishPremeasure(key);
             dbg(`premeasure: done total=${$readerTotalPages}`);
         } catch (e) {
             dbg("premeasure: error", String(e));
-        } finally {
-            premeasuring = false;
         }
     }
 
@@ -299,49 +431,9 @@
             viewport.scrollTop = 0;
         }
         pageWordCount = columnWordsCache[colIndexInChapter]?.length ?? 0;
-    }
-
-    /**
-     * Wrap every `<img>` in the rendered flow inside a `div` with
-     * `break-inside:avoid` and `display:inline-block` — the only reliable
-     * way to prevent image fragmentation in Safari / WKWebView multicol.
-     * Runs in the live DOM (after `{@html}` renders), so it always works.
-     */
-    function wrapImagesInDom() {
-        const flow = flowEl();
-        if (!flow) return;
-        let wrapped = 0;
-        for (const img of flow.querySelectorAll("img")) {
-            if (img.parentElement?.style.cssText.includes("inline-block")) continue;
-            const container = img.closest("div, figure, p") ?? img.parentElement ?? flow;
-            const nextBlock = container?.nextElementSibling;
-            const isCaption = nextBlock && nextBlock.tagName.toLowerCase() === "p" &&
-                ((nextBlock.textContent?.length ?? 0) < 120 ||
-                 /^(Рис\.|Fig\.|Figure|Таблица|Table)/.test(nextBlock.textContent?.trim() ?? ""));
-
-            if (isCaption) {
-                const w = document.createElement("div");
-                w.style.cssText = "display:inline-block;width:100%;break-inside:avoid!important;page-break-inside:avoid!important;overflow:hidden;vertical-align:top;";
-                container.parentNode?.insertBefore(w, container);
-                w.appendChild(container);
-                w.appendChild(nextBlock);
-                wrapped++;
-            } else {
-                let target: Element = img;
-                const p = img.parentElement;
-                if (p && ["div", "figure", "p", "td", "li"].includes(p.tagName.toLowerCase())) {
-                    target = p;
-                } else if (p) {
-                    target = p.closest("div, figure, p, body") ?? img;
-                }
-                const w = document.createElement("div");
-                w.style.cssText = "display:inline-block;width:100%;break-inside:avoid!important;page-break-inside:avoid!important;overflow:hidden;vertical-align:top;";
-                target.parentNode?.insertBefore(w, target);
-                w.appendChild(target);
-                wrapped++;
-            }
+        if (measuredChapter === currentChapter) {
+            pageStart.set({ chapter: currentChapter, word: wordsBefore(columnWordsCache, colIndexInChapter) });
         }
-        if (wrapped > 0) dbg(`wrapImages: ch${currentChapter} wrapped ${wrapped} images`);
     }
 
     function goPrev() {
@@ -422,55 +514,8 @@
         });
         if (!selected) return;
         try {
-            const meta = await openEpub(selected);
-            book.set({
-                title: meta.title,
-                author: meta.author,
-                spineCount: meta.spine_count,
-                filePath: selected,
-                chapterWordCounts: meta.chapter_word_counts,
-            });
-            currentPage.set(0);
-            rsvpWordOffset.set(0);
-            try { localStorage.setItem("rsvp-reader:lastPath", selected); } catch {}
-            restoreState(selected);
+            await openBook(selected);
         } catch (e) { dbg("open failed", String(e)); }
-    }
-
-    async function restoreState(path: string) {
-        try {
-            const saved = await loadState(path);
-            if (!saved) return;
-            currentPage.set(saved.page);
-            rsvpWordOffset.set(saved.rsvpWordOffset);
-            fontSize.set(saved.fontSize);
-            rsvpConfig.set({
-                wpm: saved.wpm,
-                longWordDelay: saved.longWordDelay,
-                longWordMultiplier: saved.longWordMultiplier,
-                punctuationPause: saved.punctuationPause,
-                punctuationDelayMs: saved.punctuationDelayMs,
-                longWordThreshold: 7,
-                complexityWeight: saved.complexityWeight,
-                timerMinutes: saved.timerMinutes,
-                timerSeconds: saved.timerSeconds,
-            });
-            await saveState(path, {
-                page: saved.page,
-                rsvpWordOffset: saved.rsvpWordOffset,
-                fontSize: saved.fontSize,
-                windowWidth: saved.windowWidth,
-                windowHeight: saved.windowHeight,
-                wpm: saved.wpm,
-                longWordDelay: saved.longWordDelay,
-                longWordMultiplier: saved.longWordMultiplier,
-                punctuationPause: saved.punctuationPause,
-                punctuationDelayMs: saved.punctuationDelayMs,
-                complexityWeight: saved.complexityWeight,
-                timerMinutes: saved.timerMinutes,
-                timerSeconds: saved.timerSeconds,
-            });
-        } catch { /* best-effort */ }
     }
 </script>
 
@@ -511,7 +556,7 @@
         <span class="word-count">{pageWordCount} words</span>
         <span class="page-num">
             {$readerTotalPages > 0
-                ? (premeasuring && !premeasureDone
+                ? (!premeasureDone
                     ? `Page ${$currentPage + 1} of …`
                     : `Page ${$currentPage + 1} of ${$readerTotalPages}`)
                 : ""}
@@ -540,36 +585,6 @@
     .page-area { flex:1; position:relative; overflow:hidden; }
     .epub-viewport { position:absolute; inset:0; margin:1.5rem 2rem; overflow-y:hidden; overflow-x:auto; box-sizing:border-box; scrollbar-width:none; }
     .epub-viewport::-webkit-scrollbar { display:none; }
-    .epub-flow { color:#e0e0e0; overflow:hidden; box-sizing:border-box; }
-    .epub-flow :global(figure),
-    .epub-flow :global(*:has(> img)),
-    .epub-flow :global(*:has(> svg)),
-    .epub-flow :global(*:has(> video)),
-    .epub-flow :global(*:has(> :has(> img))),
-    .epub-flow :global(*:has(> img) + p),
-    .epub-flow :global(*:has(> :has(> img)) + p),
-    .epub-flow :global(figure > figcaption) {
-        page-break-inside:avoid;
-        break-inside:avoid;
-        -webkit-column-break-inside:avoid;
-    }
-    .epub-flow :global(img), .epub-flow :global(svg), .epub-flow :global(video) {
-        display:block;
-        margin:0.25rem auto;
-        max-width:100%;
-        max-height:calc(var(--page-h, 100vh) - 3rem);
-        width:auto;
-        height:auto;
-        object-fit:contain;
-        page-break-inside:avoid;
-        break-inside:avoid;
-        -webkit-column-break-inside:avoid;
-    }
-    .epub-flow :global(a) { color:#6a9cf5; text-decoration:underline; }
-    .epub-flow :global(a:hover) { color:#8ab4ff; }
-    .epub-flow :global(p) { margin:0.5em 0; }
-    .epub-flow :global(h1), .epub-flow :global(h2), .epub-flow :global(h3),
-    .epub-flow :global(h4), .epub-flow :global(h5), .epub-flow :global(h6) { margin:0.8em 0 0.3em; color:#e0e0e0; }
     .loading-text { color:#666; font-size:1rem; }
     .bottom-bar { display:flex; align-items:center; justify-content:space-between; padding:0.5rem 1rem; background:#111; border-top:1px solid #222; flex-shrink:0; }
     .word-count { font-size:0.8rem; color:#666; }

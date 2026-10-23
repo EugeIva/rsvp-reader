@@ -1,0 +1,36 @@
+/*
+ * Styles for book content laid out in columns (pages). Global rather than
+ * scoped to Reader.svelte so the offscreen flows used to count pages
+ * (columns.ts) get exactly the same layout as the visible page; any rule that
+ * affects size or line breaks must live here.
+ */
+.epub-flow { color:#e0e0e0; overflow:hidden; box-sizing:border-box; }
+.epub-flow figure,
+.epub-flow *:has(> img),
+.epub-flow *:has(> svg),
+.epub-flow *:has(> video),
+.epub-flow *:has(> :has(> img)),
+.epub-flow *:has(> img) + p,
+.epub-flow *:has(> :has(> img)) + p,
+.epub-flow figure > figcaption {
+    page-break-inside:avoid;
+    break-inside:avoid;
+    -webkit-column-break-inside:avoid;
+}
+.epub-flow img, .epub-flow svg, .epub-flow video {
+    display:block;
+    margin:0.25rem auto;
+    max-width:100%;
+    max-height:calc(var(--page-h, 100vh) - 3rem);
+    width:auto;
+    height:auto;
+    object-fit:contain;
+    page-break-inside:avoid;
+    break-inside:avoid;
+    -webkit-column-break-inside:avoid;
+}
+.epub-flow a { color:#6a9cf5; text-decoration:underline; }
+.epub-flow a:hover { color:#8ab4ff; }
+.epub-flow p { margin:0.5em 0; }
+.epub-flow h1, .epub-flow h2, .epub-flow h3,
+.epub-flow h4, .epub-flow h5, .epub-flow h6 { margin:0.8em 0 0.3em; color:#e0e0e0; }
