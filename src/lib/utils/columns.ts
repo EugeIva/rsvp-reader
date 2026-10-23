@@ -165,12 +165,13 @@ function flowLeftOf(el: HTMLElement): number {
 }
 
 /**
- * Split a columnized element's text into per-column word arrays. Words of a
- * text node are distributed across the columns it spans proportionally to the
- * node's width overlap with each column, so every column gets exactly the
- * words that a page-mode count would attribute to it. This single function is
- * the source of truth for both page-mode word counts and RSVP token text, so
- * the two modes always agree.
+ * Split a columnized element's text into per-column word arrays. Each word goes
+ * to the column its first character is laid out in, so every column starts
+ * with the first word visible on that page. A text node that fits in one
+ * column is assigned whole; only nodes that cross a page break (usually one
+ * paragraph per page) are measured word by word. This single function is the
+ * source of truth for both page-mode word counts and RSVP token text, so the
+ * two modes always agree.
  */
 export function extractColumnWords(
     el: HTMLElement,
@@ -180,12 +181,16 @@ export function extractColumnWords(
     const cols: string[][] = Array.from({ length: pageCount }, () => []);
     if (pageW <= 0 || pageCount <= 0) return cols;
     const origin = flowLeftOf(el);
+    // The 1px tolerance keeps a word that starts exactly on a column edge
+    // from being rounded into the previous column.
+    const columnAt = (x: number) =>
+        Math.max(0, Math.min(pageCount - 1, Math.floor((x - origin + 1) / pageW)));
 
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
     while (walker.nextNode()) {
         const node = walker.currentNode as Text;
         const raw = node.textContent ?? "";
-        const words = raw.trim().split(/\s+/).filter((w) => w.length > 0);
+        const words = [...raw.matchAll(/\S+/g)];
         if (!words.length) continue;
 
         const range = document.createRange();
@@ -193,34 +198,20 @@ export function extractColumnWords(
         const rects = Array.from(range.getClientRects()).filter((r) => r.width > 0 && r.height > 0);
         if (!rects.length) continue;
 
-        const totals = Array(pageCount).fill(0);
-        let totalW = 0;
-        for (const r of rects) {
-            totalW += r.width;
-            for (let c = 0; c < pageCount; c++) {
-                const lo = Math.max(r.left, origin + c * pageW);
-                const hi = Math.min(r.right, origin + (c + 1) * pageW);
-                if (hi > lo) totals[c] += hi - lo;
-            }
+        const firstCol = columnAt(rects[0].left);
+        if (firstCol === columnAt(rects[rects.length - 1].left)) {
+            for (const w of words) cols[firstCol].push(w[0]);
+            continue;
         }
-        if (totalW <= 0) continue;
 
-        // Distribute words across the touched columns proportionally, keeping
-        // the per-column counts summing exactly to the node's word count.
-        let acc = 0;
-        let from = 0;
-        let lastTouched = -1;
-        for (let c = 0; c < pageCount; c++) {
-            if (totals[c] <= 0) continue;
-            lastTouched = c;
-            acc += words.length * (totals[c] / totalW);
-            const to = Math.min(words.length, Math.round(acc));
-            if (to > from) cols[c].push(...words.slice(from, to));
-            from = to;
-        }
-        // Guard against cumulative rounding dropping trailing words.
-        if (from < words.length && lastTouched >= 0) {
-            cols[lastTouched].push(...words.slice(from));
+        // The node crosses a page break: place each word by its first character.
+        let col = firstCol;
+        for (const w of words) {
+            range.setStart(node, w.index!);
+            range.setEnd(node, w.index! + 1);
+            const rect = range.getClientRects()[0];
+            if (rect) col = columnAt(rect.left);
+            cols[col].push(w[0]);
         }
     }
     return cols;
