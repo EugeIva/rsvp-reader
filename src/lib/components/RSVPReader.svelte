@@ -96,14 +96,16 @@
             engine = null;
         }
 
-        const eng = new RsvpEngine(allTokens, $rsvpConfig, (tok, idx) => {
-            currentToken = tok;
-            currentIdx = idx;
-            rsvpWordOffset.set(idx);
-            if (idx >= allTokens.length - 1) {
-                advanceToNextPage();
-            }
-        });
+        const eng = new RsvpEngine(
+            allTokens,
+            $rsvpConfig,
+            (tok, idx) => {
+                currentToken = tok;
+                currentIdx = idx;
+                rsvpWordOffset.set(idx);
+            },
+            advanceToNextPage
+        );
         if (start < allTokens.length) {
             eng.seek(start);
         }

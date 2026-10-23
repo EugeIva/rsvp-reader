@@ -248,15 +248,20 @@ export class RsvpEngine {
     private tokens: RsvpToken[];
     private config: RsvpConfig;
     private onToken: RsvpCallback;
+    private onEnd: (() => void) | null;
     private idx = 0;
     private timer: ReturnType<typeof setTimeout> | null = null;
     private playing = false;
+    private finished = false;
     private currentDelay = 0;
 
-    constructor(tokens: RsvpToken[], config: RsvpConfig, onToken: RsvpCallback) {
+    // onEnd fires once the last token's delay has fully elapsed, so the
+    // last word gets the same display time as every other word.
+    constructor(tokens: RsvpToken[], config: RsvpConfig, onToken: RsvpCallback, onEnd?: () => void) {
         this.tokens = tokens;
         this.config = { ...config };
         this.onToken = onToken;
+        this.onEnd = onEnd ?? null;
     }
 
     get currentIndex(): number {
@@ -286,8 +291,10 @@ export class RsvpEngine {
     }
 
     resume(): void {
-        if (this.playing) return;
-        if (this.idx >= this.tokens.length) return;
+        if (this.playing || this.finished) return;
+        if (this.tokens.length === 0) return;
+        // Also reached when paused during the last token's delay: the
+        // rescheduled advance() then finishes and fires onEnd.
         this.playing = true;
         this.schedule();
     }
@@ -295,19 +302,20 @@ export class RsvpEngine {
     stop(): void {
         this.pause();
         this.idx = 0;
+        this.finished = false;
     }
 
     seek(index: number): void {
         const wasPlaying = this.playing;
         this.pause();
         this.idx = Math.max(0, Math.min(index, this.tokens.length - 1));
+        this.finished = false;
     }
 
+    // Applies to tokens shown after this call; the word on screen keeps its
+    // already-scheduled delay instead of being skipped.
     updateConfig(config: Partial<RsvpConfig>): void {
-        const wasPlaying = this.playing;
-        if (wasPlaying) this.pause();
         Object.assign(this.config, config);
-        if (wasPlaying) this.start();
     }
 
     private emitCurrent(): void {
@@ -318,6 +326,9 @@ export class RsvpEngine {
         if (!this.playing) return;
         if (this.idx >= this.tokens.length) {
             this.playing = false;
+            this.finished = true;
+            this.timer = null;
+            this.onEnd?.();
             return;
         }
         this.emitCurrent();

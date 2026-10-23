@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { tokenize, getORP, calculateDelay, DEFAULT_RSVP_CONFIG } from "./rsvp";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { tokenize, getORP, calculateDelay, DEFAULT_RSVP_CONFIG, RsvpEngine } from "./rsvp";
 import type { RsvpToken, RsvpConfig } from "./rsvp";
 
 function words(tokens: RsvpToken[]): string[] {
@@ -222,5 +222,130 @@ describe("tokenize — edge cases", () => {
         const tokens = tokenize("!hello");
         expect(words(tokens)).toEqual(["hello"]);
         expect(tokens[0].quotePrefix).toBe("!");
+    });
+});
+describe("RsvpEngine", () => {
+    // 300 WPM with every modifier off: each word is shown for exactly 200 ms.
+    const config: RsvpConfig = {
+        ...DEFAULT_RSVP_CONFIG,
+        wpm: 300,
+        longWordDelay: false,
+        punctuationPause: false,
+        complexityWeight: 0,
+    };
+
+    let shown: string[];
+    let ended: number;
+
+    function makeEngine(text: string) {
+        shown = [];
+        ended = 0;
+        return new RsvpEngine(
+            tokenize(text),
+            config,
+            (tok) => shown.push(tok.text),
+            () => ended++
+        );
+    }
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it("shows each word for its full delay", () => {
+        const eng = makeEngine("one two three");
+        eng.start();
+        expect(shown).toEqual(["one"]);
+        vi.advanceTimersByTime(199);
+        expect(shown).toEqual(["one"]);
+        vi.advanceTimersByTime(1);
+        expect(shown).toEqual(["one", "two"]);
+        vi.advanceTimersByTime(200);
+        expect(shown).toEqual(["one", "two", "three"]);
+    });
+
+    it("fires onEnd only after the last word's delay has elapsed", () => {
+        const eng = makeEngine("one two");
+        eng.start();
+        vi.advanceTimersByTime(200);
+        expect(shown).toEqual(["one", "two"]);
+        expect(ended).toBe(0);
+        vi.advanceTimersByTime(199);
+        expect(ended).toBe(0);
+        vi.advanceTimersByTime(1);
+        expect(ended).toBe(1);
+        expect(eng.isPlaying).toBe(false);
+    });
+
+    it("fires onEnd once, even if resumed after finishing", () => {
+        const eng = makeEngine("one");
+        eng.start();
+        vi.advanceTimersByTime(200);
+        expect(ended).toBe(1);
+        eng.resume();
+        vi.advanceTimersByTime(1000);
+        expect(ended).toBe(1);
+        expect(shown).toEqual(["one"]);
+    });
+
+    it("still fires onEnd when paused and resumed during the last word", () => {
+        const eng = makeEngine("one two");
+        eng.start();
+        vi.advanceTimersByTime(250); // "two" is on screen
+        eng.pause();
+        vi.advanceTimersByTime(1000);
+        expect(ended).toBe(0);
+        eng.resume();
+        vi.advanceTimersByTime(200);
+        expect(ended).toBe(1);
+        expect(shown).toEqual(["one", "two"]);
+    });
+
+    it("pause and resume neither skip nor repeat words", () => {
+        const eng = makeEngine("one two three");
+        eng.start();
+        eng.pause();
+        vi.advanceTimersByTime(1000);
+        expect(shown).toEqual(["one"]);
+        eng.resume();
+        vi.advanceTimersByTime(200);
+        expect(shown).toEqual(["one", "two"]);
+        vi.advanceTimersByTime(200);
+        expect(shown).toEqual(["one", "two", "three"]);
+    });
+
+    it("updateConfig while playing keeps the current word and applies to later words", () => {
+        const eng = makeEngine("one two three");
+        eng.start();
+        vi.advanceTimersByTime(100);
+        eng.updateConfig({ wpm: 600 }); // 100 ms per word from now on
+        expect(shown).toEqual(["one"]);
+        vi.advanceTimersByTime(99);
+        expect(shown).toEqual(["one"]); // "one" keeps its original 200 ms
+        vi.advanceTimersByTime(1);
+        expect(shown).toEqual(["one", "two"]);
+        vi.advanceTimersByTime(100);
+        expect(shown).toEqual(["one", "two", "three"]); // "two" used the new 100 ms
+        expect(eng.isPlaying).toBe(true);
+    });
+
+    it("repeated updateConfig calls (slider drag) do not advance words", () => {
+        const eng = makeEngine("one two three");
+        eng.start();
+        for (let wpm = 300; wpm <= 400; wpm += 10) eng.updateConfig({ wpm });
+        expect(shown).toEqual(["one"]);
+    });
+
+    it("start after seek begins at the sought word", () => {
+        const eng = makeEngine("one two three");
+        eng.seek(2);
+        eng.start();
+        expect(shown).toEqual(["three"]);
+        vi.advanceTimersByTime(200);
+        expect(ended).toBe(1);
     });
 });
