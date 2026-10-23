@@ -255,7 +255,7 @@ This is a **working prototype with a sensible core idea and uneven execution**.
   - Add a `./launch.sh --app` mode, or a `package` npm script, that builds it and optionally copies it to `/Applications`.
   - Set `productName` (e.g. "RSVP Reader"), `bundle.category` (`"public.app-category.education"` or `"productivity"`), `bundle.copyright` and `bundle.macOS.minimumSystemVersion`. Also fill in the `Cargo.toml` template metadata (`authors = ["you"]`).
   - For anyone else to run it: sign and notarize (`APPLE_SIGNING_IDENTITY`, `APPLE_ID`). An unsigned build is fine for personal use, but Gatekeeper will ask for confirmation the first time.
-- [ ] **Add an app icon.**
+- [x] **Add an app icon.**
   - `src-tauri/icons/` has a full set (512×512 `icon.png`, `.icns`, `.ico`), most likely the Tauri template icons.
   - Design a 1024×1024 PNG source, then run `npm run tauri icon path/to/icon.png` to generate every size, including `icon.icns`. `bundle.icon` already points at these files.
   - Also replace `static/favicon.png` (the `<title>` in `app.html` was set to "RSVP Reader" in item 9).

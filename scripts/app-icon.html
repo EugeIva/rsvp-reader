@@ -1,0 +1,56 @@
+<!doctype html><meta charset="utf-8" />
+<style>
+    html,
+    body {
+        margin: 0;
+        background: transparent;
+    }
+    svg {
+        display: block;
+    }
+</style>
+<svg id="s" xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+    <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#1d2638" />
+            <stop offset="1" stop-color="#090c12" />
+        </linearGradient>
+        <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#ffffff" stop-opacity="0.18" />
+            <stop offset="1" stop-color="#ffffff" stop-opacity="0.02" />
+        </linearGradient>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000" flood-opacity="0.45" />
+        </filter>
+    </defs>
+    <!-- macOS icon grid: 824x824 tile with 100px margins -->
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)" filter="url(#shadow)" />
+    <rect x="101.5" y="101.5" width="821" height="821" rx="184" fill="none" stroke="url(#rim)" stroke-width="3" />
+    <!-- reticle: guide lines above and below the word, ticks at the focus letter -->
+    <g stroke="#6a9cf5" stroke-linecap="round">
+        <line x1="230" y1="368" x2="794" y2="368" stroke-width="10" stroke-opacity="0.55" />
+        <line x1="230" y1="656" x2="794" y2="656" stroke-width="10" stroke-opacity="0.55" />
+        <line id="tick1" x1="512" y1="368" x2="512" y2="420" stroke-width="12" />
+        <line id="tick2" x1="512" y1="604" x2="512" y2="656" stroke-width="12" />
+    </g>
+    <g id="word">
+        <text id="t" y="585" font-family="Georgia, 'Times New Roman', serif" font-size="230" fill="#ececec">
+            <tspan>r</tspan>
+            <tspan id="orp" fill="#ff5555">e</tspan>
+            <tspan>ad</tspan>
+        </text>
+    </g>
+</svg>
+<script>
+    // Centre the word on the tile, then point the reticle ticks at its focus letter.
+    const t = document.getElementById("t");
+    const box = t.getBBox();
+    t.setAttribute("x", 512 - box.width / 2);
+    const e = t.getExtentOfChar(1);
+    const cx = e.x + e.width / 2;
+    for (const id of ["tick1", "tick2"]) {
+        const l = document.getElementById(id);
+        l.setAttribute("x1", cx);
+        l.setAttribute("x2", cx);
+    }
+</script>
