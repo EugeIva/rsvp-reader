@@ -126,7 +126,7 @@ The confirmed bugs are traced through the code; none were reproduced at runtime.
 
 ## 6. Prioritized improvements
 
-1. **Fix the RSVP engine semantics, and test them** (items 1, 2):
+1. ✅ **Done in `719edfc`.** **Fix the RSVP engine semantics, and test them** (items 1, 2):
    - Advance to the next page only *after* the last token's delay has elapsed. For example, have the engine fire an `onEnd` after the final delay.
    - Make `updateConfig` keep the current word, either by only changing future delays or by rescheduling the remaining time.
    - Add Vitest tests for `RsvpEngine` using fake timers.
@@ -173,6 +173,11 @@ The confirmed bugs are traced through the code; none were reproduced at runtime.
    - Delete or convert the `scripts/test-*.ts` files into Vitest.
    - Replace the template README and metadata.
    - Gate debug logging behind a flag and cap the size of `debug.log`.
+10. **Fix the parse error Vite reports for `Reader.svelte` on every dev start.**
+    - `npm run tauri dev` logs `[PARSE_ERROR] Expected a semicolon … Reader.svelte?id=0:4:27` during Vite's dependency scan.
+    - Cause: the module-level script (`Reader.svelte:1-5`) is `<script context="module">` without `lang="ts"`, but it contains a TypeScript annotation (`let lastLoadedBookPath: string | null = null;`). The scanner parses that block as plain JavaScript.
+    - The app still runs, because the Svelte compiler treats the whole component as TypeScript. `npm run check` also warns that `context="module"` is deprecated.
+    - Fix: change the tag to `<script module lang="ts">`.
 
 ## 7. Overall verdict
 

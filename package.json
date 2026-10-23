@@ -20,6 +20,7 @@
     "@tauri-apps/plugin-dialog": "^2.7.3",
     "@tauri-apps/plugin-opener": "^2",
     "dale-chall": "^2.0.1",
+    "dompurify": "^3.4.17",
     "syllable": "^5.0.1"
   },
   "devDependencies": {

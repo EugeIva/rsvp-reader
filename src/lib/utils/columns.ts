@@ -1,7 +1,39 @@
+import DOMPurify from "dompurify";
 import { getChapterResource } from "$lib/commands";
 import type { ReaderMetrics } from "$lib/stores";
 
 const FONT_STACK = 'Georgia, "Times New Roman", serif';
+
+// Shown instead of a chapter that fails to process; raw EPUB HTML is never
+// rendered unsanitized.
+const FAILED_CHAPTER_HTML = "<p>This chapter could not be displayed.</p>";
+
+// DOMPurify's allowlist already drops scripts, iframes, objects, embeds and
+// on* handlers. EPUB stylesheets would fight the column layout, and forms or
+// <base>/<meta> could navigate the webview, so drop those too.
+const SANITIZE_CONFIG = {
+    FORBID_TAGS: ["style", "link", "meta", "base", "form", "input", "button", "textarea", "select"],
+};
+
+// http(s)://, protocol-relative // and any other scheme://. Relative paths and
+// data: URIs don't match.
+const REMOTE_URL = /^\s*(?:[a-z][a-z0-9+.-]*:)?\/\//i;
+const RESOURCE_ATTRS = new Set(["src", "srcset", "poster", "background", "href", "xlink:href"]);
+
+// Block anything that would make the webview fetch from the network. Links
+// (<a href>) stay, since clicks on them are routed to the system browser.
+DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
+    const value = data.attrValue ?? "";
+    if (data.attrName === "style") {
+        if (/url\s*\(/i.test(value)) data.keepAttr = false;
+        return;
+    }
+    if (!RESOURCE_ATTRS.has(data.attrName)) return;
+    if (node.nodeName.toLowerCase() === "a" && data.attrName === "href") return;
+    if (data.attrName === "srcset" ? value.split(",").some((c) => REMOTE_URL.test(c)) : REMOTE_URL.test(value)) {
+        data.keepAttr = false;
+    }
+});
 
 function setColumnStyle(el: HTMLElement, prop: string, value: string) {
     el.style.setProperty(prop, value);
@@ -10,8 +42,9 @@ function setColumnStyle(el: HTMLElement, prop: string, value: string) {
 }
 
 /**
- * Parse and sanitize chapter HTML: inline base64 images from the EPUB and
- * strip scripts/event handlers. Returns the body innerHTML for rendering.
+ * Parse and sanitize chapter HTML: inline base64 images from the EPUB, then
+ * run it through DOMPurify with remote resources blocked. Returns the body
+ * innerHTML for rendering, or a placeholder message if processing fails.
  */
 export async function processHtmlDoc(raw: string): Promise<{ html: string; error: boolean }> {
     try {
@@ -60,18 +93,10 @@ for (const img of imgs) {
             }
         }
 
-        doc.querySelectorAll("script, iframe, object, embed, style").forEach((el) => el.remove());
-        doc.querySelectorAll("*").forEach((el) => {
-            for (const attr of [...el.attributes]) {
-                if (attr.name.startsWith("on")) el.removeAttribute(attr.name);
-            }
-        });
-
-        let html = doc.body.innerHTML;
-        if (!html) html = doc.documentElement.innerHTML || raw;
+        const html = DOMPurify.sanitize(doc.body.innerHTML, SANITIZE_CONFIG);
         return { html, error: false };
     } catch {
-        return { html: raw, error: true };
+        return { html: FAILED_CHAPTER_HTML, error: true };
     }
 }
 
