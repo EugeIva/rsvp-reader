@@ -47,7 +47,7 @@
         };
     });
 
-    // Open a book (EPUB, FB2, TXT) dropped onto the window; other files are
+    // Open a book (EPUB, FB2, MOBI, TXT) dropped onto the window; other files are
     // ignored. The overlay shows only while a book is dragged over the window.
     let draggingBook = $state(false);
     $effect(() => {

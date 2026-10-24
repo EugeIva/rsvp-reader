@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { BookMetadata } from "./types";
 
-/** Open an EPUB, FB2, zipped FB2 or TXT file (detected by content, TXT by extension). */
+/** Open an EPUB, FB2, zipped FB2, MOBI/AZW3 or TXT file (detected by content, TXT by extension). */
 export async function openBookFile(path: string): Promise<BookMetadata> {
     return invoke<BookMetadata>("open_book", { path });
 }

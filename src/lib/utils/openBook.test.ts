@@ -10,6 +10,12 @@ describe("firstBookPath (dropped files)", () => {
         expect(firstBookPath(["/a/notes.md", "/b/Book.EPUB", "/c/other.epub"])).toBe("/b/Book.EPUB");
     });
 
+    it("accepts Kindle books", () => {
+        expect(firstBookPath(["/a/notes.md", "/b/Книга.AZW3"])).toBe("/b/Книга.AZW3");
+        expect(firstBookPath(["/a/book.mobi"])).toBe("/a/book.mobi");
+        expect(firstBookPath(["/a/book.prc"])).toBe("/a/book.prc");
+    });
+
     it("accepts plain text", () => {
         expect(firstBookPath(["/a/cover.jpg", "/b/Рассказ.TXT"])).toBe("/b/Рассказ.TXT");
     });

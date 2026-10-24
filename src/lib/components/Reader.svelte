@@ -294,7 +294,12 @@
     async function handleOpen() {
         const selected = await open({
             multiple: false,
-            filters: [{ name: "Books (EPUB, FB2, TXT)", extensions: ["epub", "fb2", "zip", "txt"] }],
+            filters: [
+                {
+                    name: "Books (EPUB, FB2, MOBI, AZW3, TXT)",
+                    extensions: ["epub", "fb2", "zip", "mobi", "azw3", "azw", "prc", "txt"],
+                },
+            ],
         });
         if (!selected) return;
         try {

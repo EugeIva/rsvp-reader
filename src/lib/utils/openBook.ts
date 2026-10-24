@@ -18,7 +18,7 @@ import { clearImageSizeCache } from "$lib/utils/columns";
 const LAST_PATH_KEY = "rsvp-reader:lastPath";
 
 /** Book file extensions the app opens (also in the open dialog and Finder registration). */
-export const BOOK_EXTENSIONS = [".epub", ".fb2", ".fb2.zip", ".txt"];
+export const BOOK_EXTENSIONS = [".epub", ".fb2", ".fb2.zip", ".txt", ".mobi", ".azw3", ".azw", ".prc"];
 
 /** The first path that names a book file (case-insensitive extension), or null. */
 export function firstBookPath(paths: string[]): string | null {
@@ -38,7 +38,7 @@ export function lastOpenedPath(): string | null {
  * Open a book and restore its saved state. The state is applied before the
  * book store is set, so the reader lays out the right chapter at the right
  * font size from the start instead of racing the restore. Throws if the file
- * can't be opened as an EPUB, FB2 or TXT book.
+ * can't be opened as an EPUB, FB2, MOBI or TXT book.
  */
 export async function openBook(path: string): Promise<void> {
     const meta = await openBookFile(path);

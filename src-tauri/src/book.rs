@@ -1,9 +1,10 @@
-//! Format-neutral access to the open book. Each format (EPUB, FB2) turns its
+//! Format-neutral access to the open book. Each format (EPUB, FB2, TXT, MOBI) turns its
 //! file into chapters of XHTML plus resources (images); everything after
 //! that — paging, RSVP, positions — only sees chapters.
 
 use crate::epub::EpubBook;
 use crate::fb2::Fb2Book;
+use crate::mobi::MobiBook;
 use crate::txt::TxtBook;
 use serde::Serialize;
 use std::io::{Cursor, Read};
@@ -73,17 +74,26 @@ pub fn mime_from_extension(path: &str) -> &'static str {
     }
 }
 
-/// True for file names this app opens: .epub, .fb2, .fb2.zip and .txt.
+/// Extensions of the files this app opens.
+const BOOK_EXTENSIONS: [&str; 8] = [
+    ".epub", ".fb2", ".fb2.zip", ".txt", ".mobi", ".azw3", ".azw", ".prc",
+];
+
+/// True for file names this app opens: .epub, .fb2, .fb2.zip, .txt and the
+/// Kindle .mobi, .azw3, .azw and .prc.
 pub fn is_book_path(path: &str) -> bool {
     let p = path.to_lowercase();
-    p.ends_with(".epub") || p.ends_with(".fb2") || p.ends_with(".fb2.zip") || p.ends_with(".txt")
+    BOOK_EXTENSIONS.iter().any(|ext| p.ends_with(ext))
 }
 
 /// Open a book by its contents where it has a signature: a zip with
 /// META-INF/container.xml is an EPUB, a zip with an .fb2 inside is a zipped
-/// FB2, FictionBook XML is FB2. Plain text has none, so it's recognised by
-/// its .txt extension.
+/// FB2, a Palm database of type BOOKMOBI is MOBI/AZW3, FictionBook XML is
+/// FB2. Plain text has none, so it's recognised by its .txt extension.
 pub fn load_book(path: &str, bytes: &[u8]) -> Result<Box<dyn BookSource>, String> {
+    if bytes.get(60..68) == Some(b"BOOKMOBI") {
+        return Ok(Box::new(MobiBook::parse(bytes)?));
+    }
     if bytes.starts_with(b"PK") {
         let mut zip = zip::ZipArchive::new(Cursor::new(bytes))
             .map_err(|e| format!("Failed to open archive: {e}"))?;
@@ -107,7 +117,7 @@ pub fn load_book(path: &str, bytes: &[u8]) -> Result<Box<dyn BookSource>, String
         Err(_) if path.to_lowercase().ends_with(".txt") => {
             Ok(Box::new(TxtBook::parse(path, bytes)))
         }
-        Err(e) => Err(format!("Not an EPUB, FB2 or TXT book: {e}")),
+        Err(e) => Err(format!("Not an EPUB, FB2, MOBI or TXT book: {e}")),
     }
 }
 
@@ -306,6 +316,10 @@ mod tests {
         assert!(is_book_path("/a/книга.fb2"));
         assert!(is_book_path("/a/книга.FB2.zip"));
         assert!(is_book_path("/a/рассказ.TXT"));
+        assert!(is_book_path("/a/Book.mobi"));
+        assert!(is_book_path("/a/Book.AZW3"));
+        assert!(is_book_path("/a/Book.azw"));
+        assert!(is_book_path("/a/Book.prc"));
         assert!(!is_book_path("/a/archive.zip"));
         assert!(!is_book_path("/a/notes.md"));
     }
@@ -331,5 +345,12 @@ mod tests {
             "Заметки"
         );
         assert!(load_book("/x/notes.dat", b"just some text").is_err());
+
+        let azw3_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/test.azw3");
+        let azw3 = std::fs::read(azw3_path).unwrap();
+        assert_eq!(
+            load_book("/x/book.bin", &azw3).unwrap().title(),
+            "Тестовая книга MOBI"
+        );
     }
 }

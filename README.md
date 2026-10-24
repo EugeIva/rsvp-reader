@@ -1,6 +1,7 @@
 # rsvp-reader
 
-A desktop reader for EPUB, FB2 (also zipped `.fb2.zip`) and plain-text books for macOS,
+A desktop reader for EPUB, FB2 (also zipped `.fb2.zip`), Kindle (MOBI, AZW3) and
+plain-text books for macOS,
 with two reading modes:
 
 - **Page mode** — the book laid out in pages (CSS columns), with footnote and
@@ -12,8 +13,10 @@ with two reading modes:
 
 Built with [Tauri 2](https://tauri.app) (Rust backend: `rbook` for EPUB,
 `roxmltree` for FB2, `encoding_rs` for legacy text encodings) and SvelteKit /
-Svelte 5 (static SPA). Plain-text books are split into chapters at headings
-("Глава 5", "Chapter V"...), or into chunks when there are none.
+Svelte 5 (static SPA). Kindle books (`.mobi`, `.azw3`, `.azw`, `.prc`) are read
+by the app's own MOBI/KF8 parser; DRM-protected ones can't be opened.
+Plain-text books are split into chapters at headings ("Глава 5",
+"Chapter V"...), or into chunks when there are none.
 
 Books open from the Open button, by dropping them onto the window, or from
 Finder ("Open With", or double-click once RSVP Reader is the default app).

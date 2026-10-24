@@ -1,6 +1,7 @@
 mod book;
 mod epub;
 mod fb2;
+mod mobi;
 mod state;
 mod txt;
 
@@ -15,7 +16,7 @@ use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 #[derive(Default)]
 struct PendingOpen(Mutex<Option<String>>);
 
-/// The first book (.epub, .fb2, .fb2.zip, .txt) among the opened URLs, as a file path.
+/// The first book (.epub, .fb2, .fb2.zip, .txt, .mobi, .azw3...) among the opened URLs, as a file path.
 fn book_path_from_urls(urls: &[tauri::Url]) -> Option<String> {
     urls.iter()
         .filter_map(|u| u.to_file_path().ok())
