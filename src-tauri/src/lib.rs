@@ -2,6 +2,7 @@ mod book;
 mod epub;
 mod fb2;
 mod state;
+mod txt;
 
 use book::AppState;
 use std::sync::Mutex;
@@ -14,7 +15,7 @@ use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 #[derive(Default)]
 struct PendingOpen(Mutex<Option<String>>);
 
-/// The first book (.epub, .fb2, .fb2.zip) among the opened URLs, as a file path.
+/// The first book (.epub, .fb2, .fb2.zip, .txt) among the opened URLs, as a file path.
 fn book_path_from_urls(urls: &[tauri::Url]) -> Option<String> {
     urls.iter()
         .filter_map(|u| u.to_file_path().ok())
@@ -127,7 +128,7 @@ mod tests {
             Some("/Users/me/Books/Пражское кладбище.EPUB")
         );
         let none: Vec<tauri::Url> = vec![
-            "file:///a/notes.txt".parse().unwrap(),
+            "file:///a/notes.md".parse().unwrap(),
             "https://example.com/b.epub".parse().unwrap(),
         ];
         assert_eq!(book_path_from_urls(&none), None);

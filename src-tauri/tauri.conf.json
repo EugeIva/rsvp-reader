@@ -32,7 +32,7 @@
     "targets": "all",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "category": "Education",
-    "shortDescription": "EPUB and FB2 reader with page and RSVP (speed reading) modes",
+    "shortDescription": "EPUB, FB2 and TXT reader with page and RSVP (speed reading) modes",
     "copyright": "Copyright © 2026 eugene",
     "macOS": {
       "minimumSystemVersion": "12.0"
@@ -52,6 +52,14 @@
         "description": "FictionBook 2 book",
         "mimeType": "application/x-fictionbook+xml",
         "role": "Viewer"
+      },
+      {
+        "ext": ["txt"],
+        "contentTypes": ["public.plain-text"],
+        "name": "Plain text",
+        "description": "Plain text",
+        "role": "Viewer",
+        "rank": "Alternate"
       }
     ]
   }

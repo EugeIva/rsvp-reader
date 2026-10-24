@@ -31,7 +31,7 @@
     async function handleOpen() {
         const selected = await open({
             multiple: false,
-            filters: [{ name: "Books (EPUB, FB2)", extensions: ["epub", "fb2", "zip"] }],
+            filters: [{ name: "Books (EPUB, FB2, TXT)", extensions: ["epub", "fb2", "zip", "txt"] }],
         });
         if (!selected) return;
 
@@ -49,7 +49,7 @@
 
 <div class="welcome">
     <h1>rsvp-reader</h1>
-    <p class="tagline">Open an EPUB or FB2 book to start reading</p>
+    <p class="tagline">Open an EPUB, FB2 or TXT book to start reading</p>
     <button class="open-btn" onclick={handleOpen} disabled={spinner}>
         {spinner ? "Loading..." : "Open a book"}
     </button>

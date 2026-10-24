@@ -109,3 +109,9 @@
     border: 1px solid #444;
     padding: 0.2em 0.4em;
 }
+
+/* Plain-text books (converted in src-tauri/src/txt.rs), scoped to .txt. */
+.epub-flow .txt .title,
+.epub-flow .txt .scene-break {
+    text-align: center;
+}

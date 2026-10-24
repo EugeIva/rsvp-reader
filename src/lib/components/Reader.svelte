@@ -294,7 +294,7 @@
     async function handleOpen() {
         const selected = await open({
             multiple: false,
-            filters: [{ name: "Books (EPUB, FB2)", extensions: ["epub", "fb2", "zip"] }],
+            filters: [{ name: "Books (EPUB, FB2, TXT)", extensions: ["epub", "fb2", "zip", "txt"] }],
         });
         if (!selected) return;
         try {

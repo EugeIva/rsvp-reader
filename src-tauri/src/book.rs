@@ -4,6 +4,7 @@
 
 use crate::epub::EpubBook;
 use crate::fb2::Fb2Book;
+use crate::txt::TxtBook;
 use serde::Serialize;
 use std::io::{Cursor, Read};
 use std::sync::Mutex;
@@ -72,15 +73,16 @@ pub fn mime_from_extension(path: &str) -> &'static str {
     }
 }
 
-/// True for file names this app opens: .epub, .fb2 and .fb2.zip.
+/// True for file names this app opens: .epub, .fb2, .fb2.zip and .txt.
 pub fn is_book_path(path: &str) -> bool {
     let p = path.to_lowercase();
-    p.ends_with(".epub") || p.ends_with(".fb2") || p.ends_with(".fb2.zip")
+    p.ends_with(".epub") || p.ends_with(".fb2") || p.ends_with(".fb2.zip") || p.ends_with(".txt")
 }
 
-/// Open a book by its contents, not its extension: a zip with
+/// Open a book by its contents where it has a signature: a zip with
 /// META-INF/container.xml is an EPUB, a zip with an .fb2 inside is a zipped
-/// FB2, anything else is tried as FB2 XML.
+/// FB2, FictionBook XML is FB2. Plain text has none, so it's recognised by
+/// its .txt extension.
 pub fn load_book(path: &str, bytes: &[u8]) -> Result<Box<dyn BookSource>, String> {
     if bytes.starts_with(b"PK") {
         let mut zip = zip::ZipArchive::new(Cursor::new(bytes))
@@ -100,9 +102,13 @@ pub fn load_book(path: &str, bytes: &[u8]) -> Result<Box<dyn BookSource>, String
             .map_err(|e| format!("Failed to read {name}: {e}"))?;
         return Ok(Box::new(Fb2Book::parse(&data)?));
     }
-    Ok(Box::new(
-        Fb2Book::parse(bytes).map_err(|e| format!("Not an EPUB or FB2 book: {e}"))?,
-    ))
+    match Fb2Book::parse(bytes) {
+        Ok(book) => Ok(Box::new(book)),
+        Err(_) if path.to_lowercase().ends_with(".txt") => {
+            Ok(Box::new(TxtBook::parse(path, bytes)))
+        }
+        Err(e) => Err(format!("Not an EPUB, FB2 or TXT book: {e}")),
+    }
 }
 
 // Commands are async so they run off the main thread; a plain (sync) Tauri
@@ -299,8 +305,9 @@ mod tests {
         assert!(is_book_path("/a/Book.EPUB"));
         assert!(is_book_path("/a/книга.fb2"));
         assert!(is_book_path("/a/книга.FB2.zip"));
+        assert!(is_book_path("/a/рассказ.TXT"));
         assert!(!is_book_path("/a/archive.zip"));
-        assert!(!is_book_path("/a/notes.txt"));
+        assert!(!is_book_path("/a/notes.md"));
     }
 
     #[test]
@@ -316,6 +323,13 @@ mod tests {
             "Тестовая книга"
         );
 
-        assert!(load_book("/x/notes.txt", b"just some text").is_err());
+        // Plain text is opened by its extension.
+        assert_eq!(
+            load_book("/x/Заметки.txt", "just some text".as_bytes())
+                .unwrap()
+                .title(),
+            "Заметки"
+        );
+        assert!(load_book("/x/notes.dat", b"just some text").is_err());
     }
 }
