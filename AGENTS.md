@@ -79,7 +79,7 @@ src/                        SvelteKit SPA (adapter-static, no SSR)
 - `chapterPageCounts` / derived `readerTotalPages`; `chapterHtmls` (+ `chapterHtmlsLoaded`)
 - `pageStart`, `pendingWordAnchor`, `legacyPage`, `pageCountCache` — position and cache restore
 - `rsvpColumnTexts`, `rsvpColumnChapter`, `readerMetrics` — RSVP column sourcing
-- `rsvpActive`, `rsvpWordOffset`, `rsvpConfig`, `fontSize`
+- `rsvpActive`, `rsvpWordOffset`, `rsvpConfig`, `fontSize` (`rsvpConfig` and `fontSize` are global, synced to settings.json by `utils/settings.ts`)
 
 ## Architecture decisions (read before editing)
 

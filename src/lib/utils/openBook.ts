@@ -2,7 +2,6 @@ import { openBookFile } from "$lib/commands";
 import {
     book,
     currentPage,
-    fontSize,
     rsvpWordOffset,
     rsvpActive,
     pageStart,
@@ -56,10 +55,10 @@ export async function openBook(path: string): Promise<void> {
     pendingWordAnchor.set(saved?.anchor ?? null);
     legacyPage.set(saved && !saved.anchor && saved.page > 0 ? saved.page : null);
     pageCountCache.set(saved?.pageCounts ?? null);
-    if (saved) fontSize.set(saved.fontSize);
-    // RSVP settings are global; a book saved by an older version may carry
-    // its own, which seed the global settings if there are none yet.
-    adoptLegacySettings(saved?.rsvp);
+    // RSVP settings and font size are global; a book saved by an older
+    // version may carry its own, which seed the global ones if there are none
+    // yet.
+    adoptLegacySettings(saved);
 
     try {
         localStorage.setItem(LAST_PATH_KEY, path);

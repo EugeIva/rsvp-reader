@@ -62,9 +62,11 @@ they show a blank window; `launch.sh` takes care of this (see `AGENTS.md`).
 
 ## Where data lives
 
-Reading position, page-count cache and RSVP settings are saved per book in
-`~/Library/Application Support/com.eugene.rsvp-reader/` (`book_<id>.json`,
-keyed by the book file's contents, so moving a book keeps its progress).
+Everything is kept in `~/Library/Application Support/com.eugene.rsvp-reader/`:
+
+- `book_<id>.json`: each book's reading position and page-count cache, keyed
+  by the book file's contents, so moving a book keeps its progress.
+- `settings.json`: the RSVP settings and the font size, shared by all books.
 
 Verbose logging goes to `debug.log` in the same folder. It's on in dev
 builds; in a release build, run

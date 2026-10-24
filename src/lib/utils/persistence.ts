@@ -7,7 +7,9 @@ import { dbg } from "$lib/utils/debug";
 export interface SavedState {
     page: number;
     rsvpWordOffset: number;
-    fontSize: number;
+    // Font size saved per book by versions before it became global; only
+    // read, to seed settings.json once.
+    fontSize?: number;
     windowWidth: number;
     windowHeight: number;
     // Reading position independent of layout: the word being read (page
@@ -42,6 +44,12 @@ function num(v: unknown, fallback: number, min: number, max: number, int = false
 }
 
 const bool = (v: unknown, fallback: boolean): boolean => (typeof v === "boolean" ? v : fallback);
+
+/** The font size in a saved object (settings.json or an older book state), if it has one. */
+export function parseFontSize(raw: Record<string, unknown>): number | undefined {
+    if (!("fontSize" in raw) && !("font_size" in raw)) return undefined;
+    return num(raw.fontSize ?? raw.font_size, 1.2, 0.6, 3.0);
+}
 
 /**
  * Validate RSVP settings (settings.json, or the per-book fields of older
@@ -78,7 +86,7 @@ export function parseSavedState(raw: Record<string, unknown>): SavedState {
     return {
         page: num(raw.page, 0, 0, Number.MAX_SAFE_INTEGER, true),
         rsvpWordOffset: num(raw.rsvpWordOffset ?? raw.rsvp_word_offset, 0, 0, Number.MAX_SAFE_INTEGER, true),
-        fontSize: num(raw.fontSize ?? raw.font_size, 1.2, 0.6, 3.0),
+        fontSize: parseFontSize(raw),
         windowWidth: num(raw.windowWidth ?? raw.window_width, 0, 0, 100_000),
         windowHeight: num(raw.windowHeight ?? raw.window_height, 0, 0, 100_000),
         anchor: parseAnchor(raw.anchor),

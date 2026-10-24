@@ -7,7 +7,6 @@
         rsvpActive,
         currentPage,
         rsvpWordOffset,
-        fontSize,
         pageStart,
         pageCountCache,
         readingAnchor,
@@ -132,7 +131,6 @@
         if (!b) return;
         $currentPage;
         $rsvpWordOffset;
-        $fontSize;
         $pageStart;
         $pageCountCache;
         windowSizeTick;
@@ -151,7 +149,6 @@
             await saveState($book.id, {
                 page: $currentPage,
                 rsvpWordOffset: $rsvpWordOffset,
-                fontSize: $fontSize,
                 windowWidth: window.innerWidth,
                 windowHeight: window.innerHeight,
                 anchor: readingAnchor(start, $rsvpWordOffset),

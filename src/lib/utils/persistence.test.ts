@@ -68,6 +68,11 @@ describe("parseSavedState", () => {
         expect(s.windowWidth).toBe(800);
     });
 
+    it("reads a per-book font size only when the state has one (older versions)", () => {
+        expect(parseSavedState({ page: 3 }).fontSize).toBeUndefined();
+        expect(parseSavedState({ fontSize: 1.5 }).fontSize).toBe(1.5);
+    });
+
     it("keeps the per-book RSVP settings of older versions, to seed the global ones", () => {
         expect(parseSavedState({ fontSize: 1.2 }).rsvp).toBeUndefined();
         expect(parseSavedState({ wpm: 450, punctuationDelayMs: 150 }).rsvp).toMatchObject({
